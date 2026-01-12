@@ -1,0 +1,7 @@
+{
+  "hooks": {
+    "SessionStart": "/path/to/claude_notification_wsl2/hooks/SessionStart.sh",
+    "SessionEnd": "/path/to/claude_notification_wsl2/hooks/SessionEnd.sh",
+    "PostToolUse": "/path/to/claude_notification_wsl2/hooks/PostToolUse.sh"
+  }
+}

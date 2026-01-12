@@ -2,7 +2,7 @@
 # SessionEnd.sh - Claude Code Hook for Session End Notifications
 # This hook runs when a Claude Code session ends
 #
-# Installation: Add this script path to your Claude Code settings.json under hooks.SessionEnd
+# Installation: Use this script as a command hook under hooks.SessionEnd[].hooks[].command
 #
 # Author: Claude Code TDD Implementation
 # Version: 1.0.0

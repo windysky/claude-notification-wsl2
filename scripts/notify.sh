@@ -11,7 +11,11 @@
 set -euo pipefail
 
 # Script directory and paths
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+if command -v readlink &>/dev/null; then
+    SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH" 2>/dev/null || echo "$SCRIPT_PATH")"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONFIG_DIR="${HOME}/.wsl-toast"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
@@ -23,7 +27,7 @@ PS_SCRIPT_PATH="${PS_SCRIPT_DIR}\\wsl-toast.ps1"
 # Default values
 DEFAULT_TYPE="Information"
 DEFAULT_DURATION="Normal"
-MOCK_MODE=false
+MOCK_MODE="${MOCK_MODE:-false}"
 BACKGROUND_MODE=false
 
 # Exit codes
@@ -123,6 +127,8 @@ try:
     with open('$config_file', 'r') as f:
         config = json.load(f)
     for key, value in config.items():
+        if isinstance(value, bool):
+            value = str(value).lower()
         print(f'{key}={value}')
 except Exception as e:
     sys.stderr.write(f'Error loading config: {e}\n')
@@ -139,7 +145,8 @@ apply_config() {
         while IFS='=' read -r key value; do
             case "$key" in
                 enabled)
-                    if [[ "$value" == "false" ]]; then
+                    local value_lower="${value,,}"
+                    if [[ "$value_lower" == "false" || "$value_lower" == "0" || "$value_lower" == "no" ]]; then
                         log_info "Notifications are disabled in config"
                         exit $EXIT_SUCCESS
                     fi
@@ -165,7 +172,9 @@ find_powershell() {
         "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
         "/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0/powershell.exe"
         "/mnt/c/Windows/SysWOW64/WindowsPowerShell/v1.0/powershell.exe"
+        "/mnt/c/Program Files/PowerShell/7/pwsh.exe"
         "powershell.exe"
+        "pwsh.exe"
     )
 
     for path in "${powershell_paths[@]}"; do
@@ -215,41 +224,35 @@ validate_duration() {
 }
 
 # Build PowerShell command
-build_powershell_command() {
+build_powershell_args() {
     local title="$1"
     local message="$2"
     local type="$3"
     local duration="$4"
     local logo="${5:-}"
 
-    # Escape special characters for PowerShell
-    local escaped_title escaped_message
-    escaped_title="$(printf '%s' "$title" | sed 's/"/\\"/g')"
-    escaped_message="$(printf '%s' "$message" | sed 's/"/\\"/g')"
-
-    local cmd_args=()
-    cmd_args+=("-Title" "\"${escaped_title}\"")
-    cmd_args+=("-Message" "\"${escaped_message}\"")
-    cmd_args+=("-Type" "$type")
-    cmd_args+=("-Duration" "$duration")
+    POWERSHELL_ARGS=()
+    POWERSHELL_ARGS+=("-NoProfile")
+    POWERSHELL_ARGS+=("-NonInteractive")
+    POWERSHELL_ARGS+=("-File" "$PS_SCRIPT_PATH")
+    POWERSHELL_ARGS+=("-Title" "$title")
+    POWERSHELL_ARGS+=("-Message" "$message")
+    POWERSHELL_ARGS+=("-Type" "$type")
+    POWERSHELL_ARGS+=("-Duration" "$duration")
 
     if [[ -n "$logo" ]]; then
         local logo_win
         logo_win="$(wslpath -w "$logo" 2>/dev/null || echo "$logo")"
-        cmd_args+=("-AppLogo" "\"${logo_win}\"")
+        POWERSHELL_ARGS+=("-AppLogo" "$logo_win")
     fi
 
     if [[ "$MOCK_MODE" == "true" ]]; then
-        cmd_args+=("-MockMode")
+        POWERSHELL_ARGS+=("-MockMode")
     fi
-
-    # Build the command
-    echo "& '${PS_SCRIPT_PATH}' ${cmd_args[*]}"
 }
 
 # Execute PowerShell command in background (non-blocking)
 execute_powershell_background() {
-    local powershell_cmd="$1"
     local powershell_exe
 
     # Find PowerShell
@@ -264,11 +267,7 @@ execute_powershell_background() {
 
     # Execute PowerShell command in background with nohup
     # Redirect all output to /dev/null to prevent blocking
-    nohup "$powershell_exe" \
-        -NoProfile \
-        -NonInteractive \
-        -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $powershell_cmd" \
-        >/dev/null 2>&1 &
+    nohup "$powershell_exe" "${POWERSHELL_ARGS[@]}" >/dev/null 2>&1 &
 
     # Return immediately
     return 0
@@ -276,7 +275,6 @@ execute_powershell_background() {
 
 # Execute PowerShell command
 execute_powershell() {
-    local powershell_cmd="$1"
     local powershell_exe
     local output exit_code
 
@@ -289,18 +287,18 @@ execute_powershell() {
     fi
 
     log_debug "Using PowerShell: $powershell_exe"
-    log_debug "Executing: $powershell_exe -NoProfile -NonInteractive -Command \"\$output = $powershell_cmd; \$output\""
+    log_debug "Executing: $powershell_exe ${POWERSHELL_ARGS[*]}"
 
     # Execute PowerShell command with UTF-8 encoding
+    set +e
     output="$(
         LC_ALL=en_US.UTF-8 \
         "$powershell_exe" \
-            -NoProfile \
-            -NonInteractive \
-            -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; \$output = $powershell_cmd; \$output" \
+            "${POWERSHELL_ARGS[@]}" \
             2>&1
     )"
     exit_code=$?
+    set -e
 
     if [[ $exit_code -eq 0 ]]; then
         log_info "Notification sent successfully"
@@ -333,15 +331,25 @@ send_notification() {
 
     log_info "Sending notification: [$type] $title"
 
-    # Build PowerShell command
-    local ps_cmd
-    ps_cmd="$(build_powershell_command "$title" "$message" "$type" "$duration" "$logo")"
+    if [[ "$MOCK_MODE" == "true" ]]; then
+        log_info "Mock mode enabled; skipping PowerShell execution"
+        log_info "Notification sent successfully (mock)"
+        return $EXIT_SUCCESS
+    fi
+
+    if [[ ! -f "${PROJECT_ROOT}/windows/wsl-toast.ps1" ]]; then
+        log_error "PowerShell script not found at: ${PROJECT_ROOT}/windows/wsl-toast.ps1"
+        return $EXIT_SCRIPT_NOT_FOUND
+    fi
+
+    # Build PowerShell arguments
+    build_powershell_args "$title" "$message" "$type" "$duration" "$logo"
 
     # Execute in background or foreground
     if [[ "$BACKGROUND_MODE" == "true" ]]; then
-        execute_powershell_background "$ps_cmd"
+        execute_powershell_background
     else
-        execute_powershell "$ps_cmd"
+        execute_powershell
     fi
 }
 
@@ -352,11 +360,13 @@ send_notification() {
 main() {
     local title=""
     local message=""
-    local type="$DEFAULT_TYPE"
-    local duration="$DEFAULT_DURATION"
+    local type=""
+    local duration=""
     local logo=""
     local verbose=false
     local background=false
+    local type_set=false
+    local duration_set=false
 
     # Parse command line arguments
     while [[ $# -gt 0 ]]; do
@@ -379,18 +389,22 @@ main() {
                 ;;
             -T|--type)
                 type="$2"
+                type_set=true
                 shift 2
                 ;;
             --type=*)
                 type="${1#*=}"
+                type_set=true
                 shift
                 ;;
             -d|--duration)
                 duration="$2"
+                duration_set=true
                 shift 2
                 ;;
             --duration=*)
                 duration="${1#*=}"
+                duration_set=true
                 shift
                 ;;
             -l|--logo)
@@ -434,6 +448,20 @@ main() {
 
     # Load configuration
     apply_config
+
+    if [[ -n "${WSL_TOAST_TYPE:-}" ]]; then
+        DEFAULT_TYPE="${WSL_TOAST_TYPE}"
+    fi
+    if [[ -n "${WSL_TOAST_DURATION:-}" ]]; then
+        DEFAULT_DURATION="${WSL_TOAST_DURATION}"
+    fi
+
+    if [[ "$type_set" == "false" ]]; then
+        type="$DEFAULT_TYPE"
+    fi
+    if [[ "$duration_set" == "false" ]]; then
+        duration="$DEFAULT_DURATION"
+    fi
 
     # Validate required parameters
     if [[ -z "$title" ]] || [[ -z "$message" ]]; then

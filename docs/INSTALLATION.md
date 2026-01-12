@@ -22,7 +22,7 @@ Complete installation instructions for the Windows Notification Framework for Cl
 
 ### Method 1: Automated Installation (Recommended)
 
-The automated installation script handles all setup steps including PowerShell module installation and Claude Code hooks configuration.
+The automated installation script handles setup steps including PowerShell module installation.
 
 ```bash
 # Clone the repository
@@ -30,19 +30,20 @@ git clone https://github.com/yourusername/claude_notification_wsl2.git
 cd claude_notification_wsl2
 
 # Run installation script
-chmod +x scripts/setup.sh
-./scripts/setup.sh
+chmod +x setup.sh
+./setup.sh
 ```
 
 The installation script will:
 
 1. Verify prerequisites (PowerShell availability, WSL2 connectivity)
-2. Create the configuration directory (`~/.wsl-toast/`)
-3. Copy the PowerShell toast script to Windows-accessible location
-4. Install the BurntToast PowerShell module
-5. Create default configuration file
-6. Set up Claude Code hooks (optional)
-7. Run tests to verify installation
+2. Install the BurntToast PowerShell module (optional)
+3. Create the configuration directory (`~/.wsl-toast/`)
+4. Create default configuration file
+5. Make the notify script executable
+6. Create a symlink at `~/.local/bin/wsl-toast`
+7. Optionally configure Claude Code hooks (interactive prompts)
+8. Run a mock notification test
 
 ### Method 2: Manual Installation
 
@@ -108,38 +109,52 @@ chmod +x scripts/notify.sh
 
 ## Claude Code Hooks Integration
 
-### Automatic Hook Configuration
-
-The installation script can automatically configure Claude Code hooks:
-
-```bash
-./scripts/setup.sh --configure-hooks
-```
-
 ### Manual Hook Configuration
 
 Edit your Claude Code settings file at `.claude/settings.json`:
 
-**Note:** Replace `$PROJECT_ROOT` with your actual project path, or use `./scripts/notify.sh` if running Claude Code from the project root.
+**Note:** `$CLAUDE_PROJECT_DIR` is provided by Claude Code and points to your project root.
 
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": ["--background", "--title", "Tool: {tool_name}", "--message", "{status} - Duration: {duration_ms}ms"],
-      "enabled": true
-    },
-    "SessionStart": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": ["--title", "Claude Code Session Started", "--message", "Welcome back!", "--type", "Success"],
-      "enabled": true
-    },
-    "SessionEnd": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": ["--title", "Session Ended", "--message", "See you next time!", "--type", "Information"],
-      "enabled": true
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -227,37 +242,21 @@ Valid types: `Information`, `Warning`, `Error`, `Success`
 
 Valid durations: `Short`, `Normal`, `Long`
 
-## Upgrade Procedure
-
-To upgrade from a previous version:
-
-```bash
-# Pull latest changes
-git pull origin main
-
-# Run setup script with upgrade flag
-./scripts/setup.sh --upgrade
-
-# Verify installation
-./scripts/notify.sh --title "Upgrade Complete" --message "Framework upgraded successfully" --type Success
-```
-
 ## Uninstallation
 
 To completely remove the notification framework:
 
 ```bash
 # Run the uninstallation script
-chmod +x scripts/uninstall.sh
-./scripts/uninstall.sh
+chmod +x uninstall.sh
+./uninstall.sh
 ```
 
 The uninstallation script will:
 
-1. Remove Claude Code hooks configuration
-2. Remove configuration directory (`~/.wsl-toast/`)
-3. Ask if you want to keep the BurntToast PowerShell module
-4. Remove project files (optional)
+1. Remove configuration directory (`~/.wsl-toast/`)
+2. Remove the `~/.local/bin/wsl-toast` symlink
+3. Provide optional cleanup steps for BurntToast and PATH entries
 
 ### Manual Uninstallation
 

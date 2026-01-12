@@ -253,7 +253,7 @@ file templates/notifications/ko.json
 cat .claude/settings.json | grep -A 10 "hooks"
 
 # Check script path
-ls -la $PROJECT_ROOT/scripts/notify.sh
+ls -la ./hooks/PostToolUse.sh
 ```
 
 **Solutions**:
@@ -263,9 +263,17 @@ ls -la $PROJECT_ROOT/scripts/notify.sh
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh"
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh"
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -292,14 +300,23 @@ chmod +x scripts/notify.sh
 
 **Diagnosis**: Hook is running in foreground mode.
 
-**Solution**: Always use `--background` flag for hooks:
+**Solution**: Use `run_in_background` or keep `--background` in the hook script:
 
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "args": ["--background", "--title", "Non-blocking"]
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -308,14 +325,11 @@ chmod +x scripts/notify.sh
 
 **Symptom**: Variables appear as literal text like `{tool_name}`.
 
-**Diagnosis**: Variable name may be incorrect or unsupported for this hook type.
+**Diagnosis**: Claude Code no longer interpolates `{...}` placeholders in hook
+commands.
 
-**Solution**: Check supported variables for each hook type:
-
-- PostToolUse: `{tool_name}`, `{status}`, `{duration_ms}`, `{op_count}`, `{tool_count}`
-- SessionStart: No variables typically available
-- SessionEnd: `{tool_count}`, `{op_count}`, `{duration}`
-- Notification: `{title}`, `{message}`, `{type}`
+**Solution**: Parse the hook JSON on stdin inside your hook script (see
+`hooks/PostToolUse.sh` for an example).
 
 ### Hook Timeout
 
@@ -330,9 +344,18 @@ chmod +x scripts/notify.sh
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "timeout": 2000
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 2000
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -341,7 +364,20 @@ chmod +x scripts/notify.sh
 
 ```json
 {
-  "args": ["--background", "..."]
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -416,9 +452,7 @@ Use only predefined template keys:
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "enabled": false
-    }
+    "PostToolUse": []
   }
 }
 ```
@@ -427,7 +461,20 @@ Use only predefined template keys:
 
 ```json
 {
-  "args": ["--duration", "Short"]
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash -lc '$CLAUDE_PROJECT_DIR/scripts/notify.sh --duration Short --title \"Tool\" --message \"Short\"'",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -450,7 +497,20 @@ fi
 
 ```json
 {
-  "args": ["--background"]
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -458,7 +518,20 @@ fi
 
 ```json
 {
-  "timeout": 500
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 

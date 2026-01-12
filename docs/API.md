@@ -563,30 +563,26 @@ Hooks are configured in `.claude/settings.json` with the following format:
 ```json
 {
   "hooks": {
-    "HookName": {
-      "command": "/path/to/notify.sh",
-      "args": ["--arg1", "value1", "--arg2", "value2"],
-      "enabled": true,
-      "timeout": 500
-    }
+    "HookName": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/path/to/hook-script.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
-### Hook Variables
+### Hook Input
 
-Variables available for use in hook arguments:
-
-| Variable | Type | Description |
-|----------|------|-------------|
-| `{tool_name}` | String | Name of the tool executed |
-| `{status}` | String | Execution status (success/error) |
-| `{duration_ms}` | Number | Execution time in milliseconds |
-| `{op_count}` | Number | Number of operations |
-| `{tool_count}` | Number | Number of tools used |
-| `{title}` | String | Notification title (Notification hook) |
-| `{message}` | String | Notification message (Notification hook) |
-| `{type}` | String | Notification type (Notification hook) |
+Hook scripts receive JSON via stdin with session and event data. Parse the
+JSON to extract fields like `tool_name`, `hook_event_name`, and `tool_input`.
 
 ### Example Hook Configurations
 
@@ -595,17 +591,19 @@ Variables available for use in hook arguments:
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "/home/user/PROJECTS/claude_notification_wsl2/scripts/notify.sh",
-      "args": [
-        "--background",
-        "--title", "Claude Code: {tool_name}",
-        "--message", "Status: {status}, Duration: {duration_ms}ms",
-        "--type", "Information"
-      ],
-      "enabled": true,
-      "timeout": 500
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -615,16 +613,18 @@ Variables available for use in hook arguments:
 ```json
 {
   "hooks": {
-    "SessionStart": {
-      "command": "/home/user/PROJECTS/claude_notification_wsl2/scripts/notify.sh",
-      "args": [
-        "--title", "Claude Code Session Started",
-        "--message", "Welcome back! Ready to assist.",
-        "--type", "Success"
-      ],
-      "enabled": true,
-      "timeout": 1000
-    }
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -634,16 +634,18 @@ Variables available for use in hook arguments:
 ```json
 {
   "hooks": {
-    "SessionEnd": {
-      "command": "/home/user/PROJECTS/claude_notification_wsl2/scripts/notify.sh",
-      "args": [
-        "--title", "Session Summary",
-        "--message", "Tools: {tool_count}, Operations: {op_count}",
-        "--type", "Information"
-      ],
-      "enabled": true,
-      "timeout": 1000
-    }
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```

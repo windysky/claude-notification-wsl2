@@ -13,6 +13,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}" && pwd)"
 CONFIG_DIR="${HOME}/.wsl-toast"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
+CLAUDE_SETTINGS_DIR="${HOME}/.claude"
+CLAUDE_SETTINGS_FILE="${CLAUDE_SETTINGS_DIR}/settings.json"
 
 # Exit codes
 EXIT_SUCCESS=0
@@ -26,6 +28,15 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Disable colors when stdout isn't a TTY or NO_COLOR is set
+if [[ ! -t 1 || -n "${NO_COLOR:-}" || "${TERM:-}" == "dumb" ]]; then
+    RED=""
+    GREEN=""
+    YELLOW=""
+    BLUE=""
+    NC=""
+fi
 
 #############################################################################
 # Logging Functions
@@ -45,6 +56,36 @@ log_warning() {
 
 log_error() {
     echo -e "${RED}[ERROR]${NC} $*" >&2
+}
+
+prompt_yes_no() {
+    local prompt="$1"
+    local default="$2"
+    local reply
+
+    read -p "$prompt" -r reply
+    if [[ -z "$reply" ]]; then
+        reply="$default"
+    fi
+
+    if [[ "$reply" =~ ^[Yy]$ ]]; then
+        return 0
+    fi
+
+    return 1
+}
+
+prompt_value() {
+    local prompt="$1"
+    local default="$2"
+    local reply
+
+    read -p "$prompt" -r reply
+    if [[ -z "$reply" ]]; then
+        reply="$default"
+    fi
+
+    echo "$reply"
 }
 
 #############################################################################
@@ -92,7 +133,7 @@ check_prerequisites() {
 }
 
 check_wsl2() {
-    log_info "Verifying WSL2 environment..."
+    log_info "Verifying WSL environment..."
 
     # Check if running in WSL
     if [ ! -f /proc/version ] || ! grep -qi "microsoft" /proc/version; then
@@ -100,15 +141,7 @@ check_wsl2() {
         return 0
     fi
 
-    # Check WSL version
-    local wsl_version
-    wsl_version="$(grep -m1 "Microsoft" /proc/version || true)"
-
-    if [[ "$wsl_version" == *"WSL2"* ]] || [[ "$wsl_version" == *"wsl2"* ]]; then
-        log_success "WSL2 environment detected"
-    else
-        log_warning "WSL version could not be determined. Assuming WSL2."
-    fi
+    log_success "WSL environment detected"
 
     return 0
 }
@@ -253,6 +286,133 @@ create_symlink() {
     return 0
 }
 
+configure_claude_hooks() {
+    if ! command -v python3 &>/dev/null; then
+        log_warning "Python 3 not found. Skipping Claude Code hook configuration."
+        return 0
+    fi
+
+    if ! prompt_yes_no "Configure Claude Code hooks in ${CLAUDE_SETTINGS_FILE}? [Y/n]: " "Y"; then
+        log_info "Skipping Claude Code hook configuration"
+        return 0
+    fi
+
+    local enable_posttool enable_sessionstart enable_sessionend
+    enable_posttool=false
+    enable_sessionstart=false
+    enable_sessionend=false
+
+    if prompt_yes_no "Enable PostToolUse hook? [Y/n]: " "Y"; then
+        enable_posttool=true
+    fi
+    if prompt_yes_no "Enable SessionStart hook? [Y/n]: " "Y"; then
+        enable_sessionstart=true
+    fi
+    if prompt_yes_no "Enable SessionEnd hook? [Y/n]: " "Y"; then
+        enable_sessionend=true
+    fi
+
+    if [[ "$enable_posttool" != "true" && "$enable_sessionstart" != "true" && "$enable_sessionend" != "true" ]]; then
+        log_info "No hooks selected. Skipping Claude Code hook configuration."
+        return 0
+    fi
+
+    local posttool_timeout session_timeout
+    if [[ "$enable_posttool" == "true" ]]; then
+        posttool_timeout="$(prompt_value "PostToolUse timeout in ms (default: 500): " "500")"
+    fi
+    if [[ "$enable_sessionstart" == "true" || "$enable_sessionend" == "true" ]]; then
+        session_timeout="$(prompt_value "SessionStart/SessionEnd timeout in ms (default: 1000): " "1000")"
+    fi
+
+    export CLAUDE_SETTINGS_FILE
+    export HOOK_POSTTOOL_TIMEOUT="${posttool_timeout:-500}"
+    export HOOK_SESSION_TIMEOUT="${session_timeout:-1000}"
+    export HOOK_ENABLE_POSTTOOL="$enable_posttool"
+    export HOOK_ENABLE_SESSIONSTART="$enable_sessionstart"
+    export HOOK_ENABLE_SESSIONEND="$enable_sessionend"
+
+    python3 - <<'PY'
+import json
+import os
+import shutil
+import sys
+
+settings_file = os.environ["CLAUDE_SETTINGS_FILE"]
+posttool_timeout = int(os.environ.get("HOOK_POSTTOOL_TIMEOUT", "500"))
+session_timeout = int(os.environ.get("HOOK_SESSION_TIMEOUT", "1000"))
+
+def load_settings():
+    if not os.path.exists(settings_file):
+        return {}
+    try:
+        with open(settings_file, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        backup = settings_file + ".bak"
+        shutil.copy(settings_file, backup)
+        return {}
+
+settings = load_settings()
+hooks = settings.get("hooks")
+if hooks is None:
+    hooks = {}
+elif not isinstance(hooks, dict):
+    sys.stderr.write("Existing hooks setting is not a JSON object. Aborting hook update.\n")
+    sys.exit(2)
+
+def add_hook(name, hook_value):
+    existing = hooks.get(name)
+    if isinstance(existing, list):
+        return
+    hooks[name] = hook_value
+
+def build_hook(command, timeout, matcher=None):
+    hook = {
+        "hooks": [
+            {
+                "type": "command",
+                "command": command,
+                "timeout": timeout,
+                "run_in_background": True,
+            }
+        ]
+    }
+    if matcher is not None:
+        hook["matcher"] = matcher
+    return [hook]
+
+if os.environ.get("HOOK_ENABLE_POSTTOOL") == "true":
+    add_hook(
+        "PostToolUse",
+        build_hook("$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh", posttool_timeout, ".*"),
+    )
+if os.environ.get("HOOK_ENABLE_SESSIONSTART") == "true":
+    add_hook(
+        "SessionStart",
+        build_hook("$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh", session_timeout),
+    )
+if os.environ.get("HOOK_ENABLE_SESSIONEND") == "true":
+    add_hook(
+        "SessionEnd",
+        build_hook("$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh", session_timeout),
+    )
+
+settings["hooks"] = hooks
+os.makedirs(os.path.dirname(settings_file), exist_ok=True)
+with open(settings_file, "w", encoding="utf-8") as f:
+    json.dump(settings, f, indent=2)
+PY
+
+    if [[ $? -eq 0 ]]; then
+        log_success "Claude Code hooks configured in ${CLAUDE_SETTINGS_FILE}"
+    else
+        log_warning "Failed to update Claude Code hooks. Please update ${CLAUDE_SETTINGS_FILE} manually."
+    fi
+
+    return 0
+}
+
 test_installation() {
     log_info "Testing installation..."
 
@@ -271,7 +431,7 @@ test_installation() {
 }
 
 print_post_install_info() {
-    cat <<EOF
+    printf '%b' "
 
 ${GREEN}========================================${NC}
 ${GREEN}Installation Complete!${NC}
@@ -301,7 +461,7 @@ ${BLUE}Next Steps:${NC}
 ${BLUE}Claude Code Integration (Optional):${NC}
   See README.md for hook configuration
 
-EOF
+"
 
     return 0
 }
@@ -359,6 +519,11 @@ main() {
     if ! create_symlink; then
         log_warning "Failed to create symbolic link"
     fi
+
+    echo
+
+    # Configure Claude Code hooks
+    configure_claude_hooks
 
     echo
 

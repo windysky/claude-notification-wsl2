@@ -41,86 +41,92 @@ Claude Code hooks are configured in `.claude/settings.json` at your project root
 ```json
 {
   "hooks": {
-    "HookName": {
-      "command": "/path/to/notify.sh",
-      "args": ["--arg1", "value1"],
-      "enabled": true,
-      "timeout": 500
-    }
+    "HookName": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 ### Configuration Parameters
 
+#### matcher
+
+Type: `string`
+Required: Only for tool events (PreToolUse, PermissionRequest, PostToolUse)
+
+Pattern to match tool names. Use `.*` to match all tools:
+
+```json
+{
+  "matcher": "Write|Edit"
+}
+```
+
+#### hooks
+
+Type: `array`
+Required: Yes
+
+Hooks to execute when the matcher matches:
+
+```json
+{
+  "hooks": [
+    {
+      "type": "command",
+      "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh"
+    }
+  ]
+}
+```
+
+#### type
+
+Type: `string`
+Required: Yes
+
+Use `command` for shell scripts.
+
 #### command
 
 Type: `string`
 Required: Yes
 
-**Path Options:**
-
-**Option 1: Relative paths (recommended)** - Use relative paths when running Claude Code from the project root:
-
-```json
-{
-  "command": "./scripts/notify.sh"
-}
-```
-
-**Option 2: Absolute paths** - Use absolute paths when running Claude Code from any directory. Replace `$PROJECT_ROOT` with your actual project path (e.g., `/home/yourusername/claude_notification_wsl2`):
-
-```json
-{
-  "command": "$PROJECT_ROOT/scripts/notify.sh"
-}
-```
-
-To find your project path:
-
-```bash
-pwd
-# Output: /home/yourusername/claude_notification_wsl2
-```
-
-#### args
-
-Type: `array of strings`
-Required: No
-
-Command-line arguments to pass to the notification script. Supports variable substitution:
-
-```json
-{
-  "args": ["--title", "Tool: {tool_name}", "--message", "{status} - {duration_ms}ms"]
-}
-```
-
-#### enabled
-
-Type: `boolean`
-Required: No
-Default: `true`
-
-Enable or disable the hook:
-
-```json
-{
-  "enabled": true
-}
-```
+Shell command or script path to execute. Hook input JSON is provided on stdin.
 
 #### timeout
 
 Type: `number`
 Required: No
-Default: `5000`
 
 Maximum time (in milliseconds) to wait for hook execution:
 
 ```json
 {
   "timeout": 500
+}
+```
+
+#### run_in_background
+
+Type: `boolean`
+Required: No
+
+Run the command without blocking Claude Code:
+
+```json
+{
+  "run_in_background": true
 }
 ```
 
@@ -135,30 +141,28 @@ Triggered after any tool execution. Ideal for tracking operations and long-runni
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--background",
-        "--title", "Claude Code: {tool_name}",
-        "--message", "Status: {status}, Duration: {duration_ms}ms",
-        "--type", "Information"
-      ],
-      "enabled": true,
-      "timeout": 500
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
-#### Available Variables
+#### Hook Input
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `{tool_name}` | Name of the tool | `Read`, `Write`, `Edit`, `Bash` |
-| `{status}` | Execution status | `success`, `error` |
-| `{duration_ms}` | Duration in milliseconds | `1234` |
-| `{op_count}` | Total operations in session | `42` |
-| `{tool_count}` | Total tools used in session | `15` |
+Claude Code passes hook data as JSON via stdin. The bundled
+`hooks/PostToolUse.sh` script reads this input and extracts fields like
+`tool_name` and status.
 
 #### Advanced Examples
 
@@ -167,35 +171,41 @@ Triggered after any tool execution. Ideal for tracking operations and long-runni
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--background",
-        "--title", "File Modified",
-        "--message", "{tool_name} completed in {duration_ms}ms",
-        "--type", "Success"
-      ],
-      "enabled": true
-    }
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 **Notify on Long Operations Only**
 
+Add a duration check inside `hooks/PostToolUse.sh` before sending a notification.
+
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--background",
-        "--title", "Long Operation",
-        "--message", "{tool_name} took {duration_ms}ms",
-        "--type", "Warning"
-      ],
-      "enabled": true
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -209,37 +219,42 @@ Triggered when you start a Claude Code session. Perfect for welcome messages.
 ```json
 {
   "hooks": {
-    "SessionStart": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Claude Code Session Started",
-        "--message", "Welcome back! Ready to assist.",
-        "--type", "Success",
-        "--duration", "Short"
-      ],
-      "enabled": true,
-      "timeout": 1000
-    }
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
 #### Examples
 
+Edit `templates/notifications/*.json` to customize the SessionStart message.
+
 **Simple Welcome**
 
 ```json
 {
   "hooks": {
-    "SessionStart": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Claude Code",
-        "--message", "Session started",
-        "--type", "Success"
-      ],
-      "enabled": true
-    }
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -249,15 +264,17 @@ Triggered when you start a Claude Code session. Perfect for welcome messages.
 ```json
 {
   "hooks": {
-    "SessionStart": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Claude Code",
-        "--message", "Working on: claude_notification_wsl2",
-        "--type", "Information"
-      ],
-      "enabled": true
-    }
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -271,28 +288,26 @@ Triggered when you end a Claude Code session. Useful for session summaries.
 ```json
 {
   "hooks": {
-    "SessionEnd": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Session Summary",
-        "--message", "Tools: {tool_count}, Operations: {op_count}",
-        "--type", "Information",
-        "--duration", "Normal"
-      ],
-      "enabled": true,
-      "timeout": 1000
-    }
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
-#### Available Variables
+#### Hook Input
 
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `{tool_count}` | Number of tools used | `15` |
-| `{op_count}` | Number of operations | `42` |
-| `{duration}` | Session duration | `1h 30m` |
+SessionEnd hook data is delivered via stdin. Update the templates or
+`hooks/SessionEnd.sh` to change message content.
 
 #### Examples
 
@@ -301,15 +316,17 @@ Triggered when you end a Claude Code session. Useful for session summaries.
 ```json
 {
   "hooks": {
-    "SessionEnd": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Session Complete",
-        "--message", "You used {tool_count} tools and completed {op_count} operations. Great work!",
-        "--type", "Success"
-      ],
-      "enabled": true
-    }
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -323,37 +340,47 @@ Direct notifications from Claude Code.
 ```json
 {
   "hooks": {
-    "Notification": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "{title}",
-        "--message", "{message}",
-        "--type", "{type}"
-      ],
-      "enabled": true,
-      "timeout": 500
-    }
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/your-notification-hook.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
-#### Available Variables
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `{title}` | Notification title | `Custom Title` |
-| `{message}` | Notification message | `Custom message` |
-| `{type}` | Notification type | `Information` |
+The Notification hook receives JSON via stdin. Create a small wrapper script
+that parses the input and calls `scripts/notify.sh`.
 
 ## Best Practices
 
 ### Use Background Mode
 
-Always use `--background` flag for PostToolUse and Notification hooks to prevent blocking:
+If you want non-blocking hooks, set `run_in_background` to `true`:
 
 ```json
 {
-  "args": ["--background", "--title", "Non-blocking", "--message", "Runs in background"]
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -363,14 +390,41 @@ Set shorter timeouts for frequent hooks (PostToolUse) and longer for session hoo
 
 ```json
 {
-  "PostToolUse": {
-    "timeout": 500
-  },
-  "SessionStart": {
-    "timeout": 1000
-  },
-  "SessionEnd": {
-    "timeout": 1000
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "timeout": 1000
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -403,17 +457,18 @@ Don't enable PostToolUse for every operation if you have many. Consider:
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--background",
-        "--title", "Long Operation",
-        "--message", "{tool_name}: {duration_ms}ms",
-        "--type", "Warning",
-        "--duration", "Short"
-      ],
-      "enabled": true
-    }
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -423,51 +478,55 @@ Don't enable PostToolUse for every operation if you have many. Consider:
 ```json
 {
   "hooks": {
-    "SessionStart": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Claude Code Session Started",
-        "--message", "Welcome back! Ready to assist.",
-        "--type", "Success",
-        "--duration", "Short"
-      ],
-      "enabled": true,
-      "timeout": 1000
-    },
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--background",
-        "--title", "Claude: {tool_name}",
-        "--message", "{status} - {duration_ms}ms",
-        "--type", "Information",
-        "--duration", "Short"
-      ],
-      "enabled": true,
-      "timeout": 500
-    },
-    "SessionEnd": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Session Summary",
-        "--message", "Tools used: {tool_count}, Operations: {op_count}",
-        "--type", "Information",
-        "--duration", "Normal"
-      ],
-      "enabled": true,
-      "timeout": 1000
-    },
-    "Notification": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--background",
-        "--title", "{title}",
-        "--message", "{message}",
-        "--type", "{type}"
-      ],
-      "enabled": true,
-      "timeout": 500
-    }
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/your-notification-hook.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -482,13 +541,13 @@ Don't enable PostToolUse for every operation if you have many. Consider:
 
 1. Verify the path is correct:
 ```bash
-# Check if the script exists
-test -f $PROJECT_ROOT/scripts/notify.sh && echo "Found" || echo "Not found"
+# Check if the PowerShell script exists
+test -f /home/yourusername/claude_notification_wsl2/windows/wsl-toast.ps1 && echo "Found" || echo "Not found"
 ```
 
-2. Verify the script is executable:
+2. Verify PowerShell is available:
 ```bash
-chmod +x scripts/notify.sh
+powershell.exe -Command "Write-Host 'PowerShell works'"
 ```
 
 3. Check Claude Code logs for errors
@@ -501,7 +560,7 @@ chmod +x scripts/notify.sh
 
 1. Test the script manually:
 ```bash
-./scripts/notify.sh --title "Test" --message "Manual test"
+powershell.exe -NoProfile -NonInteractive -File "$(wslpath -w /home/yourusername/claude_notification_wsl2/windows/wsl-toast.ps1)" -Title "Test" -Message "Manual test" -Type Information
 ```
 
 2. Check PowerShell accessibility:
@@ -518,11 +577,24 @@ powershell.exe -Command "Write-Host 'PowerShell works'"
 
 **Problem**: Hook execution blocks Claude Code operations.
 
-**Solution**: Always use `--background` flag:
+**Solution**: Set `run_in_background` to `true` for non-blocking execution:
 
 ```json
 {
-  "args": ["--background", "--title", "Non-blocking", "--message", "Runs in background"]
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -530,7 +602,8 @@ powershell.exe -Command "Write-Host 'PowerShell works'"
 
 **Problem**: Variables appear as literal text like `{tool_name}`.
 
-**Solution**: Verify variable names match Claude Code documentation. Some variables may not be available for all hook types.
+**Solution**: Claude Code no longer interpolates `{...}` placeholders. Parse the
+hook JSON from stdin inside your hook script.
 
 ### Timeout Errors
 
@@ -540,7 +613,20 @@ powershell.exe -Command "Write-Host 'PowerShell works'"
 
 ```json
 {
-  "timeout": 2000
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 2000
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
@@ -602,29 +688,27 @@ Monitor resource usage if hooks are very frequent:
 
 ```bash
 # Check process count
-ps aux | grep notify.sh | wc -l
+ps aux | rg "wsl-toast.ps1" | wc -l
 ```
 
 Background processes are automatically cleaned up, but monitoring is recommended for heavy usage.
 
 ## Disabling Hooks
 
-To disable individual hooks, set `enabled` to `false`:
+To disable individual hooks, remove the entry or set it to an empty array:
 
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "enabled": false
-    }
+    "PostToolUse": []
   }
 }
 ```
 
-To disable all hooks temporarily:
+If you used `scripts/notify.sh`, you can also disable notifications globally:
 
 ```bash
 export WSL_TOAST_ENABLED=false
 ```
 
-This is useful for debugging or when you need quiet operation.
+Direct PowerShell hook commands ignore `WSL_TOAST_ENABLED`.

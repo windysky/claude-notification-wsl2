@@ -120,21 +120,23 @@ The installation script can automatically configure Claude Code hooks:
 
 Edit your Claude Code settings file at `.claude/settings.json`:
 
+**Note:** Replace `$PROJECT_ROOT` with your actual project path, or use `./scripts/notify.sh` if running Claude Code from the project root.
+
 ```json
 {
   "hooks": {
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": ["--background", "--title", "Tool: {tool_name}", "--message", "{status} - Duration: {duration_ms}ms"],
       "enabled": true
     },
     "SessionStart": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": ["--title", "Claude Code Session Started", "--message", "Welcome back!", "--type", "Success"],
       "enabled": true
     },
     "SessionEnd": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": ["--title", "Session Ended", "--message", "See you next time!", "--type", "Information"],
       "enabled": true
     }
@@ -321,7 +323,7 @@ New-NetFirewallRule -DisplayName "WSL2" -Direction Inbound -Action Allow
 ```bash
 # Get the absolute path
 pwd
-# Output: /path/to/claude_notification_wsl2
+# Output: $PROJECT_ROOT
 
 # Use this path in settings.json
 ```

@@ -1,7 +1,11 @@
 {
+  "_comment": "Claude Code hooks configuration for Windows notifications",
+  "_comment2": "NOTE: Paths are relative to where you run 'claude' command from",
+  "_comment3": "Option 1: Run claude from project root, use relative paths as shown below",
+  "_comment4": "Option 2: Run claude from anywhere, use absolute paths to your project location",
   "hooks": {
-    "SessionStart": "/path/to/claude_notification_wsl2/hooks/SessionStart.sh",
-    "SessionEnd": "/path/to/claude_notification_wsl2/hooks/SessionEnd.sh",
-    "PostToolUse": "/path/to/claude_notification_wsl2/hooks/PostToolUse.sh"
+    "SessionStart": "./hooks/SessionStart.sh",
+    "SessionEnd": "./hooks/SessionEnd.sh",
+    "PostToolUse": "./hooks/PostToolUse.sh"
   }
 }

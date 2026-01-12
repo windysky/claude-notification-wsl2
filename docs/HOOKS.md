@@ -58,11 +58,21 @@ Claude Code hooks are configured in `.claude/settings.json` at your project root
 Type: `string`
 Required: Yes
 
-Absolute path to the notification script. Use the actual path to your project:
+**Path Options:**
+
+**Option 1: Relative paths (recommended)** - Use relative paths when running Claude Code from the project root:
 
 ```json
 {
-  "command": "/path/to/claude_notification_wsl2/scripts/notify.sh"
+  "command": "./scripts/notify.sh"
+}
+```
+
+**Option 2: Absolute paths** - Use absolute paths when running Claude Code from any directory. Replace `$PROJECT_ROOT` with your actual project path (e.g., `/home/yourusername/claude_notification_wsl2`):
+
+```json
+{
+  "command": "$PROJECT_ROOT/scripts/notify.sh"
 }
 ```
 
@@ -70,7 +80,7 @@ To find your project path:
 
 ```bash
 pwd
-# Output: /path/to/claude_notification_wsl2
+# Output: /home/yourusername/claude_notification_wsl2
 ```
 
 #### args
@@ -126,7 +136,7 @@ Triggered after any tool execution. Ideal for tracking operations and long-runni
 {
   "hooks": {
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--background",
         "--title", "Claude Code: {tool_name}",
@@ -158,7 +168,7 @@ Triggered after any tool execution. Ideal for tracking operations and long-runni
 {
   "hooks": {
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--background",
         "--title", "File Modified",
@@ -177,7 +187,7 @@ Triggered after any tool execution. Ideal for tracking operations and long-runni
 {
   "hooks": {
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--background",
         "--title", "Long Operation",
@@ -200,7 +210,7 @@ Triggered when you start a Claude Code session. Perfect for welcome messages.
 {
   "hooks": {
     "SessionStart": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Claude Code Session Started",
         "--message", "Welcome back! Ready to assist.",
@@ -222,7 +232,7 @@ Triggered when you start a Claude Code session. Perfect for welcome messages.
 {
   "hooks": {
     "SessionStart": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Claude Code",
         "--message", "Session started",
@@ -240,7 +250,7 @@ Triggered when you start a Claude Code session. Perfect for welcome messages.
 {
   "hooks": {
     "SessionStart": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Claude Code",
         "--message", "Working on: claude_notification_wsl2",
@@ -262,7 +272,7 @@ Triggered when you end a Claude Code session. Useful for session summaries.
 {
   "hooks": {
     "SessionEnd": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Session Summary",
         "--message", "Tools: {tool_count}, Operations: {op_count}",
@@ -292,7 +302,7 @@ Triggered when you end a Claude Code session. Useful for session summaries.
 {
   "hooks": {
     "SessionEnd": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Session Complete",
         "--message", "You used {tool_count} tools and completed {op_count} operations. Great work!",
@@ -314,7 +324,7 @@ Direct notifications from Claude Code.
 {
   "hooks": {
     "Notification": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "{title}",
         "--message", "{message}",
@@ -394,7 +404,7 @@ Don't enable PostToolUse for every operation if you have many. Consider:
 {
   "hooks": {
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--background",
         "--title", "Long Operation",
@@ -414,7 +424,7 @@ Don't enable PostToolUse for every operation if you have many. Consider:
 {
   "hooks": {
     "SessionStart": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Claude Code Session Started",
         "--message", "Welcome back! Ready to assist.",
@@ -425,7 +435,7 @@ Don't enable PostToolUse for every operation if you have many. Consider:
       "timeout": 1000
     },
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--background",
         "--title", "Claude: {tool_name}",
@@ -437,7 +447,7 @@ Don't enable PostToolUse for every operation if you have many. Consider:
       "timeout": 500
     },
     "SessionEnd": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Session Summary",
         "--message", "Tools used: {tool_count}, Operations: {op_count}",
@@ -448,7 +458,7 @@ Don't enable PostToolUse for every operation if you have many. Consider:
       "timeout": 1000
     },
     "Notification": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--background",
         "--title", "{title}",
@@ -473,7 +483,7 @@ Don't enable PostToolUse for every operation if you have many. Consider:
 1. Verify the path is correct:
 ```bash
 # Check if the script exists
-test -f /path/to/claude_notification_wsl2/scripts/notify.sh && echo "Found" || echo "Not found"
+test -f $PROJECT_ROOT/scripts/notify.sh && echo "Found" || echo "Not found"
 ```
 
 2. Verify the script is executable:

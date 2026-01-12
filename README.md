@@ -82,12 +82,28 @@ Notifications use sensible defaults by default. Configuration is stored in `~/.w
 
 Add to your `.claude/settings.json`:
 
+**Option 1: Relative paths (recommended)** - Run Claude Code from project root:
+
 ```json
 {
   "hooks": {
-    "PostToolUse": "/path/to/claude_notification_wsl2/scripts/notify.sh --background --title 'Tool: {tool_name}' --message '{status} - Duration: {duration_ms}ms'",
-    "SessionStart": "/path/to/claude_notification_wsl2/scripts/notify.sh --title 'Claude Code Session Started' --message 'Welcome back!' --type Success",
-    "SessionEnd": "/path/to/claude_notification_wsl2/scripts/notify.sh --title 'Session Ended' --message 'See you next time!' --type Information"
+    "PostToolUse": "./scripts/notify.sh --background --title 'Tool: {tool_name}' --message '{status} - Duration: {duration_ms}ms'",
+    "SessionStart": "./scripts/notify.sh --title 'Claude Code Session Started' --message 'Welcome back!' --type Success",
+    "SessionEnd": "./scripts/notify.sh --title 'Session Ended' --message 'See you next time!' --type Information"
+  }
+}
+```
+
+**Option 2: Absolute paths** - Run Claude Code from anywhere:
+
+Replace `$PROJECT_ROOT` with your actual project path (e.g., `/home/yourusername/claude_notification_wsl2`):
+
+```json
+{
+  "hooks": {
+    "PostToolUse": "$PROJECT_ROOT/scripts/notify.sh --background --title 'Tool: {tool_name}' --message '{status} - Duration: {duration_ms}ms'",
+    "SessionStart": "$PROJECT_ROOT/scripts/notify.sh --title 'Claude Code Session Started' --message 'Welcome back!' --type Success",
+    "SessionEnd": "$PROJECT_ROOT/scripts/notify.sh --title 'Session Ended' --message 'See you next time!' --type Information"
   }
 }
 ```

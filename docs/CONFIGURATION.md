@@ -290,7 +290,7 @@ Claude Code hooks are configured in `.claude/settings.json`:
 {
   "hooks": {
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": ["--background", "--title", "Tool: {tool_name}", "--message", "{status} - {duration_ms}ms"],
       "enabled": true,
       "timeout": 500
@@ -319,7 +319,7 @@ Notifies after each tool execution:
 {
   "hooks": {
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--background",
         "--title", "Claude Code: {tool_name}",
@@ -340,7 +340,7 @@ Notifies when Claude Code session starts:
 {
   "hooks": {
     "SessionStart": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Claude Code Session Started",
         "--message", "Welcome back! Ready to assist.",
@@ -360,7 +360,7 @@ Notifies when Claude Code session ends:
 {
   "hooks": {
     "SessionEnd": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "Session Summary",
         "--message", "Tools: {tool_count}, Operations: {op_count}",
@@ -380,7 +380,7 @@ Direct notifications from Claude Code:
 {
   "hooks": {
     "Notification": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh",
+      "command": "$PROJECT_ROOT/scripts/notify.sh",
       "args": [
         "--title", "{title}",
         "--message", "{message}",

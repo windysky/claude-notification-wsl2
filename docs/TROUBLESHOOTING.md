@@ -253,7 +253,7 @@ file templates/notifications/ko.json
 cat .claude/settings.json | grep -A 10 "hooks"
 
 # Check script path
-ls -la /path/to/claude_notification_wsl2/scripts/notify.sh
+ls -la $PROJECT_ROOT/scripts/notify.sh
 ```
 
 **Solutions**:
@@ -264,7 +264,7 @@ ls -la /path/to/claude_notification_wsl2/scripts/notify.sh
 {
   "hooks": {
     "PostToolUse": {
-      "command": "/path/to/claude_notification_wsl2/scripts/notify.sh"
+      "command": "$PROJECT_ROOT/scripts/notify.sh"
     }
   }
 }

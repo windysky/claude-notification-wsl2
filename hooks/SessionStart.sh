@@ -2,7 +2,7 @@
 # SessionStart.sh - Claude Code Hook for Session Start Notifications
 # This hook runs when a Claude Code session starts
 #
-# Installation: Add this script path to your Claude Code settings.json under hooks.SessionStart
+# Installation: Use this script as a command hook under hooks.SessionStart[].hooks[].command
 #
 # Author: Claude Code TDD Implementation
 # Version: 1.0.0

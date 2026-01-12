@@ -289,27 +289,27 @@ Claude Code hooks are configured in `.claude/settings.json`:
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": ["--background", "--title", "Tool: {tool_name}", "--message", "{status} - {duration_ms}ms"],
-      "enabled": true,
-      "timeout": 500
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
 
-### Hook Variables
+### Hook Input
 
-The following variables are available for use in hook messages:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `{tool_name}` | Name of the tool executed | `Read`, `Write`, `Edit` |
-| `{status}` | Execution status | `success`, `error` |
-| `{duration_ms}` | Execution time in milliseconds | `1234` |
-| `{op_count}` | Number of operations | `5` |
-| `{tool_count}` | Number of tools used | `3` |
+Hooks receive JSON via stdin with session and event data. The bundled hook
+scripts read this input and extract fields like `tool_name` and `status`.
 
 ### PostToolUse Hook
 
@@ -318,16 +318,19 @@ Notifies after each tool execution:
 ```json
 {
   "hooks": {
-    "PostToolUse": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--background",
-        "--title", "Claude Code: {tool_name}",
-        "--message", "Status: {status}, Duration: {duration_ms}ms",
-        "--type", "{status}"
-      ],
-      "enabled": true
-    }
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -339,15 +342,18 @@ Notifies when Claude Code session starts:
 ```json
 {
   "hooks": {
-    "SessionStart": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Claude Code Session Started",
-        "--message", "Welcome back! Ready to assist.",
-        "--type", "Success"
-      ],
-      "enabled": true
-    }
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -359,15 +365,18 @@ Notifies when Claude Code session ends:
 ```json
 {
   "hooks": {
-    "SessionEnd": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "Session Summary",
-        "--message", "Tools: {tool_count}, Operations: {op_count}",
-        "--type", "Information"
-      ],
-      "enabled": true
-    }
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -379,15 +388,18 @@ Direct notifications from Claude Code:
 ```json
 {
   "hooks": {
-    "Notification": {
-      "command": "$PROJECT_ROOT/scripts/notify.sh",
-      "args": [
-        "--title", "{title}",
-        "--message", "{message}",
-        "--type", "{type}"
-      ],
-      "enabled": true
-    }
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/your-notification-hook.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```

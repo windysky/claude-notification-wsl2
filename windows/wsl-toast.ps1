@@ -75,6 +75,9 @@ param(
     [switch]$MockMode
 )
 
+# Ensure UTF-8 output for WSL callers
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 #region Helper Functions
 
 <#
@@ -318,6 +321,56 @@ function Get-DefaultToastConfiguration {
 
 <#
 .SYNOPSIS
+    Maps duration to milliseconds for balloon notifications
+
+.PARAMETER Duration
+    The duration to map
+
+.OUTPUTS
+    System.Int32 duration in milliseconds
+#>
+function Get-ToastDurationMs {
+    [CmdletBinding()]
+    [OutputType([int])]
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$Duration = 'Normal'
+    )
+
+    switch ($Duration) {
+        'Short' { return 5000 }
+        'Long' { return 20000 }
+        default { return 10000 }
+    }
+}
+
+<#
+.SYNOPSIS
+    Maps duration to BurntToast duration values
+
+.PARAMETER Duration
+    The duration to map
+
+.OUTPUTS
+    System.String duration for BurntToast or null for default
+#>
+function Get-BurntToastDuration {
+    [CmdletBinding()]
+    [OutputType([string])]
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$Duration = 'Normal'
+    )
+
+    switch ($Duration) {
+        'Short' { return 'Short' }
+        'Long' { return 'Long' }
+        default { return $null }
+    }
+}
+
+<#
+.SYNOPSIS
     Creates a toast object with specified properties
 
 .PARAMETER Title
@@ -443,21 +496,29 @@ function Show-ToastNotification {
             # Import BurntToast module
             Import-Module BurntToast -ErrorAction Stop
 
-            # Map notification types to BurntToast functions
-            $toastBuilder = switch ($Toast.Type) {
-                'Warning'  { { & $Toast.Title $Toast.Message -WarningBanner } }
-                'Error'    { { & $Toast.Title $Toast.Message -BannerColor Red } }
-                'Success'  { { & $Toast.Title $Toast.Message -BannerColor Green } }
-                default    { { & $Toast.Title $Toast.Message } }
-            }
-
             # Display the toast
-            if ($Toast.AppLogo) {
-                $null = New-BurntToastNotification -Title $Toast.Title -Body $Toast.Message -AppLogo $Toast.AppLogo
+            $cmd = Get-Command -Name New-BurntToastNotification -ErrorAction Stop
+            $paramNames = $cmd.Parameters.Keys
+            $burntToastDuration = Get-BurntToastDuration -Duration $Toast.Duration
+            $btParams = @{}
+
+            if ($paramNames -contains 'Text') {
+                $btParams.Text = @($Toast.Title, $Toast.Message)
             }
             else {
-                $null = New-BurntToastNotification -Title $Toast.Title -Body $Toast.Message
+                if ($paramNames -contains 'Title') { $btParams.Title = $Toast.Title }
+                if ($paramNames -contains 'Body') { $btParams.Body = $Toast.Message }
             }
+
+            if ($Toast.AppLogo -and ($paramNames -contains 'AppLogo')) {
+                $btParams.AppLogo = $Toast.AppLogo
+            }
+
+            if ($burntToastDuration -and ($paramNames -contains 'Duration')) {
+                $btParams.Duration = $burntToastDuration
+            }
+
+            $null = New-BurntToastNotification @btParams
 
             $result.Success = $true
             $result.Method = 'BurntToast'
@@ -480,7 +541,7 @@ function Show-ToastNotification {
             $balloon.Visible = $true
 
             # Show balloon and cleanup
-            $balloon.ShowBalloonTip(5000)
+            $balloon.ShowBalloonTip((Get-ToastDurationMs -Duration $Toast.Duration))
             Start-Sleep -Milliseconds 100
             $balloon.Dispose()
 
@@ -561,6 +622,8 @@ function Send-WSLToast {
         Type = $Type
         Duration = $Duration
         Timestamp = Get-Date
+        DisplayMethod = $null
+        DisplayMessage = $null
         Error = $null
     }
 

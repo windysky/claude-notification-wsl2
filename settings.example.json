@@ -1,11 +1,45 @@
 {
   "_comment": "Claude Code hooks configuration for Windows notifications",
-  "_comment2": "NOTE: Paths are relative to where you run 'claude' command from",
-  "_comment3": "Option 1: Run claude from project root, use relative paths as shown below",
-  "_comment4": "Option 2: Run claude from anywhere, use absolute paths to your project location",
+  "_comment2": "NOTE: $CLAUDE_PROJECT_DIR points to your project root when hooks run",
+  "_comment3": "Option 1: Use $CLAUDE_PROJECT_DIR in command paths (recommended)",
+  "_comment4": "Option 2: Use absolute paths to your project location",
   "hooks": {
-    "SessionStart": "./hooks/SessionStart.sh",
-    "SessionEnd": "./hooks/SessionEnd.sh",
-    "PostToolUse": "./hooks/PostToolUse.sh"
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }

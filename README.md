@@ -29,7 +29,9 @@ git clone https://github.com/yourusername/claude_notification_wsl2.git
 cd claude_notification_wsl2
 
 # Run the installation script
-./scripts/setup.sh
+./setup.sh
+
+# Optional: configure Claude Code hooks when prompted
 ```
 
 ### Basic Usage
@@ -82,28 +84,48 @@ Notifications use sensible defaults by default. Configuration is stored in `~/.w
 
 Add to your `.claude/settings.json`:
 
-**Option 1: Relative paths (recommended)** - Run Claude Code from project root:
+**Hook scripts (recommended)** - Uses the included hook scripts that read hook JSON from stdin:
 
 ```json
 {
   "hooks": {
-    "PostToolUse": "./scripts/notify.sh --background --title 'Tool: {tool_name}' --message '{status} - Duration: {duration_ms}ms'",
-    "SessionStart": "./scripts/notify.sh --title 'Claude Code Session Started' --message 'Welcome back!' --type Success",
-    "SessionEnd": "./scripts/notify.sh --title 'Session Ended' --message 'See you next time!' --type Information"
-  }
-}
-```
-
-**Option 2: Absolute paths** - Run Claude Code from anywhere:
-
-Replace `$PROJECT_ROOT` with your actual project path (e.g., `/home/yourusername/claude_notification_wsl2`):
-
-```json
-{
-  "hooks": {
-    "PostToolUse": "$PROJECT_ROOT/scripts/notify.sh --background --title 'Tool: {tool_name}' --message '{status} - Duration: {duration_ms}ms'",
-    "SessionStart": "$PROJECT_ROOT/scripts/notify.sh --title 'Claude Code Session Started' --message 'Welcome back!' --type Success",
-    "SessionEnd": "$PROJECT_ROOT/scripts/notify.sh --title 'Session Ended' --message 'See you next time!' --type Information"
+    "PostToolUse": [
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "timeout": 500,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
+            "timeout": 1000,
+            "run_in_background": true
+          }
+        ]
+      }
+    ]
   }
 }
 ```
@@ -241,9 +263,9 @@ claude_notification_wsl2/
 ├── windows/              # PowerShell scripts
 │   └── wsl-toast.ps1    # Main toast notification script
 ├── scripts/              # Bash scripts
-│   ├── notify.sh        # WSL2 bridge script
-│   ├── setup.sh         # Installation script
-│   └── uninstall.sh     # Uninstallation script
+│   └── notify.sh        # WSL2 bridge script
+├── setup.sh             # Installation script
+├── uninstall.sh         # Uninstallation script
 ├── src/                  # Python modules
 │   ├── config_loader.py # Configuration management
 │   └── template_loader.py # Template system

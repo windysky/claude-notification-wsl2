@@ -100,6 +100,7 @@ logs/
 # Backups
 # ===========================================
 .moai-backups/
+archive/
 *.backup/
 *-backup/
 *_backup_*/

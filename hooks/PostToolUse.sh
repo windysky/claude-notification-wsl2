@@ -2,7 +2,7 @@
 # PostToolUse.sh - Claude Code Hook for Tool Completion Notifications
 # This hook runs after each tool execution to show toast notifications
 #
-# Installation: Add this script path to your Claude Code settings.json under hooks.PostToolUse
+# Installation: Use this script as a command hook under hooks.PostToolUse[].hooks[].command
 #
 # Author: Claude Code TDD Implementation
 # Version: 1.0.0
@@ -29,7 +29,7 @@ fi
 HOOK_DATA=$(cat)
 
 # Parse tool name and status
-TOOL_NAME=$(echo "$HOOK_DATA" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('tool', 'Unknown'))" 2>/dev/null || echo "Tool")
+TOOL_NAME=$(echo "$HOOK_DATA" | python3 -c "import sys, json; data=json.load(sys.stdin); print(data.get('tool_name') or data.get('tool') or 'Unknown')" 2>/dev/null || echo "Tool")
 
 # Determine if tool succeeded (check for common error indicators)
 if echo "$HOOK_DATA" | grep -qi "error\|fail\|exception"; then

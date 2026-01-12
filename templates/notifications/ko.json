@@ -1,0 +1,38 @@
+{
+  "tool_completed": {
+    "title": "도구 완료",
+    "message": "도구가 성공적으로 실행을 완료했습니다"
+  },
+  "tool_failed": {
+    "title": "도구 실패",
+    "message": "도구 실행 중 오류가 발생했습니다"
+  },
+  "error_occurred": {
+    "title": "오류 발생",
+    "message": "예기치 않은 오류가 발생했습니다"
+  },
+  "session_start": {
+    "title": "Claude Code 세션 시작",
+    "message": "환영합니다! 세션이 시작되었습니다"
+  },
+  "session_end": {
+    "title": "Claude Code 세션 종료",
+    "message": "세션이 종료되었습니다. 다음에 만나요!"
+  },
+  "build_complete": {
+    "title": "빌드 완료",
+    "message": "프로젝트가 성공적으로 빌드되었습니다"
+  },
+  "build_failed": {
+    "title": "빌드 실패",
+    "message": "빌드 과정에서 오류가 발생했습니다"
+  },
+  "test_complete": {
+    "title": "테스트 완료",
+    "message": "모든 테스트가 실행되었습니다"
+  },
+  "test_failed": {
+    "title": "테스트 실패",
+    "message": "일부 테스트가 실패했습니다"
+  }
+}

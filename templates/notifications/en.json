@@ -1,0 +1,38 @@
+{
+  "tool_completed": {
+    "title": "Tool Completed",
+    "message": "The tool has finished execution successfully"
+  },
+  "tool_failed": {
+    "title": "Tool Failed",
+    "message": "The tool encountered an error during execution"
+  },
+  "error_occurred": {
+    "title": "Error Occurred",
+    "message": "An unexpected error has occurred"
+  },
+  "session_start": {
+    "title": "Claude Code Session Started",
+    "message": "Welcome back! Your session has started"
+  },
+  "session_end": {
+    "title": "Claude Code Session Ended",
+    "message": "Your session has ended. See you next time!"
+  },
+  "build_complete": {
+    "title": "Build Complete",
+    "message": "Your project has been built successfully"
+  },
+  "build_failed": {
+    "title": "Build Failed",
+    "message": "The build process encountered errors"
+  },
+  "test_complete": {
+    "title": "Tests Complete",
+    "message": "All tests have been executed"
+  },
+  "test_failed": {
+    "title": "Tests Failed",
+    "message": "Some tests have failed"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "tool_completed": {
+    "title": "ツール完了",
+    "message": "ツールが正常に実行されました"
+  },
+  "tool_failed": {
+    "title": "ツール失敗",
+    "message": "ツールの実行中にエラーが発生しました"
+  },
+  "error_occurred": {
+    "title": "エラー発生",
+    "message": "予期しないエラーが発生しました"
+  },
+  "session_start": {
+    "title": "Claude Code セッション開始",
+    "message": "おかえりなさい！セッションが開始されました"
+  },
+  "session_end": {
+    "title": "Claude Code セッション終了",
+    "message": "セッションが終了しました。またお会いしましょう！"
+  },
+  "build_complete": {
+    "title": "ビルド完了",
+    "message": "プロジェクトが正常にビルドされました"
+  },
+  "build_failed": {
+    "title": "ビルド失敗",
+    "message": "ビルド中にエラーが発生しました"
+  },
+  "test_complete": {
+    "title": "テスト完了",
+    "message": "すべてのテストが実行されました"
+  },
+  "test_failed": {
+    "title": "テスト失敗",
+    "message": "一部のテストが失敗しました"
+  }
+}

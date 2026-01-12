@@ -1,0 +1,38 @@
+{
+  "tool_completed": {
+    "title": "工具完成",
+    "message": "工具已成功执行完成"
+  },
+  "tool_failed": {
+    "title": "工具失败",
+    "message": "工具执行过程中遇到错误"
+  },
+  "error_occurred": {
+    "title": "发生错误",
+    "message": "发生了意外错误"
+  },
+  "session_start": {
+    "title": "Claude Code 会话开始",
+    "message": "欢迎回来！您的会话已开始"
+  },
+  "session_end": {
+    "title": "Claude Code 会话结束",
+    "message": "您的会话已结束。下次见！"
+  },
+  "build_complete": {
+    "title": "构建完成",
+    "message": "您的项目已成功构建"
+  },
+  "build_failed": {
+    "title": "构建失败",
+    "message": "构建过程中遇到错误"
+  },
+  "test_complete": {
+    "title": "测试完成",
+    "message": "所有测试已执行完成"
+  },
+  "test_failed": {
+    "title": "测试失败",
+    "message": "部分测试失败"
+  }
+}

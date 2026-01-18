@@ -3,7 +3,7 @@
 # Installs Windows toast notification system for Claude Code CLI on WSL2
 #
 # Author: Claude Code TDD Implementation
-# Version: 1.0.0
+# Version: 1.1.0
 # License: MIT
 
 set -euo pipefail
@@ -15,12 +15,16 @@ CONFIG_DIR="${HOME}/.wsl-toast"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 CLAUDE_SETTINGS_DIR="${HOME}/.claude"
 CLAUDE_SETTINGS_FILE="${CLAUDE_SETTINGS_DIR}/settings.json"
+FORCE_OVERWRITE=false
+DRY_RUN=false
+POWERSHELL_CMD=""
+POWERSHELL_TIMEOUT_SEC=15
+POWERSHELL_ARGS=("-NoProfile" "-NonInteractive" "-NoLogo" "-ExecutionPolicy" "Bypass")
 
 # Exit codes
 EXIT_SUCCESS=0
 EXIT_ERROR=1
 EXIT_MISSING_DEPS=2
-EXIT_ALREADY_INSTALLED=3
 
 # Color output
 RED='\033[0;31m'
@@ -88,6 +92,54 @@ prompt_value() {
     echo "$reply"
 }
 
+usage() {
+    cat <<EOF
+Usage: $(basename "$0") [options]
+
+Options:
+  --force     Overwrite existing configuration files without prompting
+  --dry-run   Show what would change without writing files
+  -h, --help  Show this help message
+EOF
+}
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --force)
+                FORCE_OVERWRITE=true
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                ;;
+            -h|--help)
+                usage
+                exit $EXIT_SUCCESS
+                ;;
+            *)
+                log_error "Unknown argument: $1"
+                usage
+                exit $EXIT_ERROR
+                ;;
+        esac
+        shift
+    done
+}
+
+run_powershell() {
+    local command="$1"
+
+    if [[ -z "$POWERSHELL_CMD" ]]; then
+        return 127
+    fi
+
+    if command -v timeout &>/dev/null; then
+        timeout "${POWERSHELL_TIMEOUT_SEC}s" "$POWERSHELL_CMD" "${POWERSHELL_ARGS[@]}" -Command "$command"
+    else
+        "$POWERSHELL_CMD" "${POWERSHELL_ARGS[@]}" -Command "$command"
+    fi
+}
+
 #############################################################################
 # Prerequisite Checking
 #############################################################################
@@ -98,7 +150,11 @@ check_prerequisites() {
     local missing_deps=()
 
     # Check for PowerShell
-    if ! command -v powershell.exe &>/dev/null && ! command -v pwsh.exe &>/dev/null; then
+    if command -v powershell.exe &>/dev/null; then
+        POWERSHELL_CMD="powershell.exe"
+    elif command -v pwsh.exe &>/dev/null; then
+        POWERSHELL_CMD="pwsh.exe"
+    else
         missing_deps+=("PowerShell (powershell.exe or pwsh.exe)")
     fi
 
@@ -123,10 +179,13 @@ check_prerequisites() {
     log_success "All prerequisites met"
 
     # Show PowerShell version
-    if command -v powershell.exe &>/dev/null; then
+    if [[ -n "$POWERSHELL_CMD" ]]; then
         local ps_version
-        ps_version="$(powershell.exe -Command 'Write-Host $PSVersionTable.PSVersion' 2>/dev/null | tr -d '\r')"
-        log_info "PowerShell version: $ps_version"
+        if ps_version="$(run_powershell 'Write-Host $PSVersionTable.PSVersion' 2>/dev/null | tr -d '\r')"; then
+            log_info "PowerShell version: $ps_version"
+        else
+            log_warning "Unable to read PowerShell version (command timed out or failed)"
+        fi
     fi
 
     return 0
@@ -151,12 +210,13 @@ check_existing_installation() {
 
     if [ -f "$CONFIG_FILE" ]; then
         log_warning "Existing configuration found at: $CONFIG_FILE"
-        read -p "Overwrite existing configuration? [y/N]: " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            log_info "Installation cancelled by user"
-            return $EXIT_ALREADY_INSTALLED
+        if [[ "$FORCE_OVERWRITE" == "true" ]]; then
+            log_info "Force overwrite enabled for existing configuration."
+        else
+            log_info "You will be prompted before overwriting. Use --force to overwrite automatically."
         fi
+        # Return success to continue - hooks may still need updating
+        return 0
     fi
 
     return 0
@@ -167,17 +227,25 @@ check_existing_installation() {
 #############################################################################
 
 install_powershell_module() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "Dry run: skipping BurntToast module check/install"
+        return 0
+    fi
+
     log_info "Checking BurntToast PowerShell module..."
 
     # Check if BurntToast is installed
     local module_check
-    module_check="$(powershell.exe -Command "
+    if ! module_check="$(run_powershell "
         if (Get-Module -ListAvailable -Name BurntToast -ErrorAction SilentlyContinue) {
             Write-Host 'INSTALLED'
         } else {
             Write-Host 'NOT_INSTALLED'
         }
-    " 2>/dev/null | tr -d '\r')"
+    " 2>/dev/null | tr -d '\r')"; then
+        log_warning "BurntToast module check failed or timed out; skipping installation prompt"
+        return 0
+    fi
 
     if [ "$module_check" = "INSTALLED" ]; then
         log_success "BurntToast module is already installed"
@@ -195,7 +263,7 @@ install_powershell_module() {
     fi
 
     # Attempt to install BurntToast
-    if powershell.exe -Command "Install-Module -Name BurntToast -Force -Scope CurrentUser" 2>&1; then
+    if run_powershell "Install-Module -Name BurntToast -Force -Scope CurrentUser" 2>&1; then
         log_success "BurntToast module installed successfully"
     else
         log_warning "Failed to install BurntToast. Notifications will use Windows Forms fallback."
@@ -209,8 +277,12 @@ create_config_directory() {
     log_info "Creating configuration directory: $CONFIG_DIR"
 
     if [ ! -d "$CONFIG_DIR" ]; then
-        mkdir -p "$CONFIG_DIR"
-        log_success "Configuration directory created"
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "Dry run: would create configuration directory at ${CONFIG_DIR}"
+        else
+            mkdir -p "$CONFIG_DIR"
+            log_success "Configuration directory created"
+        fi
     else
         log_info "Configuration directory already exists"
     fi
@@ -219,6 +291,28 @@ create_config_directory() {
 }
 
 create_default_config() {
+    local existed_before=false
+    if [ -f "$CONFIG_FILE" ]; then
+        existed_before=true
+    fi
+
+    if [ -f "$CONFIG_FILE" ]; then
+        if [[ "$FORCE_OVERWRITE" != "true" ]]; then
+            if ! prompt_yes_no "Config file exists at ${CONFIG_FILE}. Overwrite with defaults? [y/N]: " "N"; then
+                log_info "Configuration unchanged at ${CONFIG_FILE}. Re-run with --force to overwrite."
+                return 0
+            fi
+        fi
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "Dry run: would overwrite configuration at ${CONFIG_FILE}"
+            return 0
+        fi
+        log_warning "Overwriting existing configuration at ${CONFIG_FILE}"
+    elif [[ "$DRY_RUN" == "true" ]]; then
+        log_info "Dry run: would create configuration at ${CONFIG_FILE}"
+        return 0
+    fi
+
     log_info "Creating default configuration..."
 
     cat > "$CONFIG_FILE" <<EOF
@@ -232,12 +326,21 @@ create_default_config() {
 }
 EOF
 
-    log_success "Default configuration created"
+    if [[ "$existed_before" == "true" ]]; then
+        log_success "Configuration updated at ${CONFIG_FILE}"
+    else
+        log_success "Configuration created at ${CONFIG_FILE}"
+    fi
 
     return 0
 }
 
 install_notify_script() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "Dry run: skipping notify.sh installation"
+        return 0
+    fi
+
     log_info "Installing notify.sh script..."
 
     local notify_script="${PROJECT_ROOT}/scripts/notify.sh"
@@ -256,6 +359,11 @@ install_notify_script() {
 }
 
 create_symlink() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "Dry run: would create symbolic link at ${HOME}/.local/bin/wsl-toast"
+        return 0
+    fi
+
     log_info "Creating symbolic link in user bin directory..."
 
     local bin_dir="${HOME}/.local/bin"
@@ -293,54 +401,89 @@ configure_claude_hooks() {
     fi
 
     if ! prompt_yes_no "Configure Claude Code hooks in ${CLAUDE_SETTINGS_FILE}? [Y/n]: " "Y"; then
-        log_info "Skipping Claude Code hook configuration"
+        log_info "Skipping Claude Code hook configuration. Re-run with --force to overwrite automatically."
         return 0
     fi
-
-    local enable_posttool enable_sessionstart enable_sessionend
-    enable_posttool=false
-    enable_sessionstart=false
-    enable_sessionend=false
-
-    if prompt_yes_no "Enable PostToolUse hook? [Y/n]: " "Y"; then
-        enable_posttool=true
-    fi
-    if prompt_yes_no "Enable SessionStart hook? [Y/n]: " "Y"; then
-        enable_sessionstart=true
-    fi
-    if prompt_yes_no "Enable SessionEnd hook? [Y/n]: " "Y"; then
-        enable_sessionend=true
+    if [ -f "$CLAUDE_SETTINGS_FILE" ] && [[ "$FORCE_OVERWRITE" != "true" ]]; then
+        if ! prompt_yes_no "Existing Claude settings found at ${CLAUDE_SETTINGS_FILE}. Overwrite selected hooks? [y/N]: " "N"; then
+            log_info "Skipping Claude Code hook configuration. Re-run with --force to overwrite."
+            return 0
+        fi
     fi
 
-    if [[ "$enable_posttool" != "true" && "$enable_sessionstart" != "true" && "$enable_sessionend" != "true" ]]; then
+    local enable_notification enable_permissionrequest enable_stop enable_subagentstop
+    enable_notification=false
+    enable_permissionrequest=false
+    enable_stop=false
+    enable_subagentstop=false
+
+    if prompt_yes_no "Enable Notification hook? [Y/n]: " "Y"; then
+        enable_notification=true
+    fi
+    if prompt_yes_no "Enable PermissionRequest hook? [Y/n]: " "Y"; then
+        enable_permissionrequest=true
+    fi
+    if prompt_yes_no "Enable Stop hook? [Y/n]: " "Y"; then
+        enable_stop=true
+    fi
+    if prompt_yes_no "Enable SubagentStop hook? [y/N]: " "N"; then
+        enable_subagentstop=true
+    fi
+
+    if [[ "$enable_notification" != "true" && "$enable_permissionrequest" != "true" && "$enable_stop" != "true" && "$enable_subagentstop" != "true" ]]; then
         log_info "No hooks selected. Skipping Claude Code hook configuration."
         return 0
     fi
 
-    local posttool_timeout session_timeout
-    if [[ "$enable_posttool" == "true" ]]; then
-        posttool_timeout="$(prompt_value "PostToolUse timeout in ms (default: 500): " "500")"
+    local notification_timeout permission_timeout stop_timeout subagent_timeout
+    if [[ "$enable_notification" == "true" ]]; then
+        notification_timeout="$(prompt_value "Notification timeout in ms (default: 1000): " "1000")"
     fi
-    if [[ "$enable_sessionstart" == "true" || "$enable_sessionend" == "true" ]]; then
-        session_timeout="$(prompt_value "SessionStart/SessionEnd timeout in ms (default: 1000): " "1000")"
+    if [[ "$enable_permissionrequest" == "true" ]]; then
+        permission_timeout="$(prompt_value "PermissionRequest timeout in ms (default: 1000): " "1000")"
+    fi
+    if [[ "$enable_stop" == "true" ]]; then
+        stop_timeout="$(prompt_value "Stop timeout in ms (default: 1000): " "1000")"
+    fi
+    if [[ "$enable_subagentstop" == "true" ]]; then
+        subagent_timeout="$(prompt_value "SubagentStop timeout in ms (default: 1000): " "1000")"
     fi
 
     export CLAUDE_SETTINGS_FILE
-    export HOOK_POSTTOOL_TIMEOUT="${posttool_timeout:-500}"
-    export HOOK_SESSION_TIMEOUT="${session_timeout:-1000}"
-    export HOOK_ENABLE_POSTTOOL="$enable_posttool"
-    export HOOK_ENABLE_SESSIONSTART="$enable_sessionstart"
-    export HOOK_ENABLE_SESSIONEND="$enable_sessionend"
+    export CLAUDE_PROJECT_ROOT="${PROJECT_ROOT}"
+    export HOOK_NOTIFICATION_TIMEOUT="${notification_timeout:-1000}"
+    export HOOK_PERMISSION_TIMEOUT="${permission_timeout:-1000}"
+    export HOOK_STOP_TIMEOUT="${stop_timeout:-1000}"
+    export HOOK_SUBAGENTSTOP_TIMEOUT="${subagent_timeout:-1000}"
+    export HOOK_ENABLE_NOTIFICATION="$enable_notification"
+    export HOOK_ENABLE_PERMISSIONREQUEST="$enable_permissionrequest"
+    export HOOK_ENABLE_STOP="$enable_stop"
+    export HOOK_ENABLE_SUBAGENTSTOP="$enable_subagentstop"
+    export DRY_RUN
 
-    python3 - <<'PY'
+    local hook_status
+    if ! hook_status="$(python3 - <<'PY'
 import json
 import os
 import shutil
 import sys
 
 settings_file = os.environ["CLAUDE_SETTINGS_FILE"]
-posttool_timeout = int(os.environ.get("HOOK_POSTTOOL_TIMEOUT", "500"))
-session_timeout = int(os.environ.get("HOOK_SESSION_TIMEOUT", "1000"))
+project_root = os.environ["CLAUDE_PROJECT_ROOT"]
+dry_run = os.environ.get("DRY_RUN", "false").lower() == "true"
+
+def parse_timeout(value, default):
+    try:
+        if value is None:
+            return default
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+notification_timeout = parse_timeout(os.environ.get("HOOK_NOTIFICATION_TIMEOUT"), 1000)
+permission_timeout = parse_timeout(os.environ.get("HOOK_PERMISSION_TIMEOUT"), 1000)
+stop_timeout = parse_timeout(os.environ.get("HOOK_STOP_TIMEOUT"), 1000)
+subagent_timeout = parse_timeout(os.environ.get("HOOK_SUBAGENTSTOP_TIMEOUT"), 1000)
 
 def load_settings():
     if not os.path.exists(settings_file):
@@ -349,11 +492,17 @@ def load_settings():
         with open(settings_file, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        backup = settings_file + ".bak"
-        shutil.copy(settings_file, backup)
+        if not dry_run:
+            backup = settings_file + ".bak"
+            shutil.copy(settings_file, backup)
+        sys.stderr.write(f"Warning: Invalid JSON in {settings_file}. Using empty settings.\n")
         return {}
 
 settings = load_settings()
+if not isinstance(settings, dict):
+    sys.stderr.write("Existing settings file is not a JSON object. Aborting hook update.\n")
+    sys.exit(2)
+
 hooks = settings.get("hooks")
 if hooks is None:
     hooks = {}
@@ -361,19 +510,13 @@ elif not isinstance(hooks, dict):
     sys.stderr.write("Existing hooks setting is not a JSON object. Aborting hook update.\n")
     sys.exit(2)
 
-def add_hook(name, hook_value):
-    existing = hooks.get(name)
-    if isinstance(existing, list):
-        return
-    hooks[name] = hook_value
-
 def build_hook(command, timeout, matcher=None):
     hook = {
         "hooks": [
             {
                 "type": "command",
                 "command": command,
-                "timeout": timeout,
+                "timeout": parse_timeout(timeout, 1000),
                 "run_in_background": True,
             }
         ]
@@ -382,38 +525,103 @@ def build_hook(command, timeout, matcher=None):
         hook["matcher"] = matcher
     return [hook]
 
-if os.environ.get("HOOK_ENABLE_POSTTOOL") == "true":
-    add_hook(
-        "PostToolUse",
-        build_hook("$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh", posttool_timeout, ".*"),
-    )
-if os.environ.get("HOOK_ENABLE_SESSIONSTART") == "true":
-    add_hook(
-        "SessionStart",
-        build_hook("$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh", session_timeout),
-    )
-if os.environ.get("HOOK_ENABLE_SESSIONEND") == "true":
-    add_hook(
-        "SessionEnd",
-        build_hook("$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh", session_timeout),
-    )
+def set_hook(name, hook_value):
+    current = hooks.get(name)
+    if current != hook_value:
+        hooks[name] = hook_value
+        return True
+    return False
 
-settings["hooks"] = hooks
-os.makedirs(os.path.dirname(settings_file), exist_ok=True)
-with open(settings_file, "w", encoding="utf-8") as f:
-    json.dump(settings, f, indent=2)
+file_exists = os.path.exists(settings_file)
+changed = False
+
+for legacy_hook in ("PostToolUse", "SessionStart", "SessionEnd"):
+    if legacy_hook in hooks:
+        hooks.pop(legacy_hook, None)
+        changed = True
+
+if os.environ.get("HOOK_ENABLE_NOTIFICATION") == "true":
+    if set_hook(
+        "Notification",
+        build_hook(f"{project_root}/hooks/Notification.sh", notification_timeout),
+    ):
+        changed = True
+if os.environ.get("HOOK_ENABLE_PERMISSIONREQUEST") == "true":
+    if set_hook(
+        "PermissionRequest",
+        build_hook(f"{project_root}/hooks/PermissionRequest.sh", permission_timeout, ".*"),
+    ):
+        changed = True
+if os.environ.get("HOOK_ENABLE_STOP") == "true":
+    if set_hook(
+        "Stop",
+        build_hook(f"{project_root}/hooks/Stop.sh", stop_timeout),
+    ):
+        changed = True
+if os.environ.get("HOOK_ENABLE_SUBAGENTSTOP") == "true":
+    if set_hook(
+        "SubagentStop",
+        build_hook(f"{project_root}/hooks/SubagentStop.sh", subagent_timeout),
+    ):
+        changed = True
+
+if dry_run:
+    if changed:
+        status = "dry_run_create" if not file_exists else "dry_run_update"
+    else:
+        status = "dry_run_unchanged"
+    print(f"CLAUDE_HOOKS_STATUS={status}")
+    sys.exit(0)
+
+if changed:
+    settings["hooks"] = hooks
+    os.makedirs(os.path.dirname(settings_file), exist_ok=True)
+    with open(settings_file, "w", encoding="utf-8") as f:
+        json.dump(settings, f, indent=2)
+    status = "created" if not file_exists else "updated"
+else:
+    status = "unchanged"
+
+print(f"CLAUDE_HOOKS_STATUS={status}")
 PY
-
-    if [[ $? -eq 0 ]]; then
-        log_success "Claude Code hooks configured in ${CLAUDE_SETTINGS_FILE}"
-    else
+    )"; then
         log_warning "Failed to update Claude Code hooks. Please update ${CLAUDE_SETTINGS_FILE} manually."
+        return 0
     fi
+
+    case "$hook_status" in
+        CLAUDE_HOOKS_STATUS=created)
+            log_success "Claude Code hooks created in ${CLAUDE_SETTINGS_FILE}"
+            ;;
+        CLAUDE_HOOKS_STATUS=updated)
+            log_success "Claude Code hooks updated in ${CLAUDE_SETTINGS_FILE}"
+            ;;
+        CLAUDE_HOOKS_STATUS=unchanged)
+            log_info "Claude Code hooks already up to date in ${CLAUDE_SETTINGS_FILE}"
+            ;;
+        CLAUDE_HOOKS_STATUS=dry_run_create)
+            log_info "Dry run: would create Claude Code hooks in ${CLAUDE_SETTINGS_FILE}"
+            ;;
+        CLAUDE_HOOKS_STATUS=dry_run_update)
+            log_info "Dry run: would update Claude Code hooks in ${CLAUDE_SETTINGS_FILE}"
+            ;;
+        CLAUDE_HOOKS_STATUS=dry_run_unchanged)
+            log_info "Dry run: Claude Code hooks already up to date in ${CLAUDE_SETTINGS_FILE}"
+            ;;
+        *)
+            log_warning "Unknown Claude hook status: ${hook_status}"
+            ;;
+    esac
 
     return 0
 }
 
 test_installation() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "Dry run: skipping installation test"
+        return 0
+    fi
+
     log_info "Testing installation..."
 
     local notify_script="${PROJECT_ROOT}/scripts/notify.sh"
@@ -471,6 +679,8 @@ ${BLUE}Claude Code Integration (Optional):${NC}
 #############################################################################
 
 main() {
+    parse_args "$@"
+
     echo -e "${BLUE}========================================${NC}"
     echo -e "${BLUE}WSL Toast Notification Installer${NC}"
     echo -e "${BLUE}========================================${NC}"
@@ -485,10 +695,8 @@ main() {
     # Check WSL2 environment
     check_wsl2
 
-    # Check existing installation
-    if ! check_existing_installation; then
-        exit $EXIT_ALREADY_INSTALLED
-    fi
+    # Check existing installation (continues even if config exists - hooks may need updating)
+    check_existing_installation
 
     echo
 

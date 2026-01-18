@@ -292,7 +292,7 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.0.0 (2026-01-12)
+Version 1.1.0 (2026-01-12)
 
 ## Authors
 

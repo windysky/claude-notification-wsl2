@@ -7,6 +7,8 @@ Complete guide for integrating Windows notifications with Claude Code hooks.
 - [Overview](#overview)
 - [Hook Configuration](#hook-configuration)
 - [Hook Types](#hook-types)
+- [Detailed Notifications](#detailed-notifications)
+- [Avoiding Duplicate Notifications](#avoiding-duplicate-notifications)
 - [Best Practices](#best-practices)
 - [Troubleshooting](#troubleshooting)
 
@@ -18,17 +20,16 @@ Claude Code hooks enable automatic notifications at specific events during your 
 
 Hooks are scripts that Claude Code executes at specific points:
 
-- **SessionStart**: When you start a Claude Code session
-- **SessionEnd**: When you end a Claude Code session
-- **PostToolUse**: After any tool execution (Read, Write, Edit, Bash, etc.)
-- **Notification**: When Claude Code sends a notification
+- **Stop**: When Claude finishes responding and waits for input
+- **Notification**: When Claude Code sends a notification (e.g., idle prompt)
+- **PermissionRequest**: When Claude requests permission to use a tool
 
 ### Benefits of Hook Integration
 
 - Stay informed without switching windows
-- Get notified of long-running operations
-- Track your development session activity
-- Receive build/test results automatically
+- Get notified when Claude is waiting for your input
+- See detailed messages showing what Claude actually did (like Codex CLI)
+- Receive permission request alerts
 
 ## Hook Configuration
 
@@ -132,24 +133,22 @@ Run the command without blocking Claude Code:
 
 ## Hook Types
 
-### PostToolUse Hook
+### Stop Hook
 
-Triggered after any tool execution. Ideal for tracking operations and long-running tasks.
+Triggered when Claude finishes responding and waits for your input. This is the primary notification hook that shows you when Claude is ready.
 
 #### Configuration
 
 ```json
 {
   "hooks": {
-    "PostToolUse": [
+    "Stop": [
       {
-        "matcher": ".*",
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "timeout": 500,
-            "run_in_background": true
+            "command": "$CLAUDE_PROJECT_DIR/hooks/Stop.sh",
+            "timeout": 500
           }
         ]
       }
@@ -160,180 +159,22 @@ Triggered after any tool execution. Ideal for tracking operations and long-runni
 
 #### Hook Input
 
-Claude Code passes hook data as JSON via stdin. The bundled
-`hooks/PostToolUse.sh` script reads this input and extracts fields like
-`tool_name` and status.
-
-#### Advanced Examples
-
-**Notify on Write Operations Only**
+Claude Code passes hook data as JSON via stdin:
 
 ```json
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
+  "session_id": "abc123",
+  "transcript_path": "/path/to/transcript.jsonl",
+  "cwd": "/current/working/directory",
+  "hook_event_name": "Stop"
 }
 ```
 
-**Notify on Long Operations Only**
-
-Add a duration check inside `hooks/PostToolUse.sh` before sending a notification.
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### SessionStart Hook
-
-Triggered when you start a Claude Code session. Perfect for welcome messages.
-
-#### Configuration
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
-            "timeout": 1000,
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-#### Examples
-
-Edit `templates/notifications/*.json` to customize the SessionStart message.
-
-**Simple Welcome**
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-**Welcome with Project Name**
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### SessionEnd Hook
-
-Triggered when you end a Claude Code session. Useful for session summaries.
-
-#### Configuration
-
-```json
-{
-  "hooks": {
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
-            "timeout": 1000,
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-#### Hook Input
-
-SessionEnd hook data is delivered via stdin. Update the templates or
-`hooks/SessionEnd.sh` to change message content.
-
-#### Examples
-
-**Detailed Summary**
-
-```json
-{
-  "hooks": {
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+The bundled `hooks/Stop.sh` script reads the transcript file and extracts the last assistant message to display in the notification.
 
 ### Notification Hook
 
-Direct notifications from Claude Code.
+Triggered when Claude Code sends a notification (e.g., idle prompt, waiting for input).
 
 #### Configuration
 
@@ -345,190 +186,140 @@ Direct notifications from Claude Code.
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/your-notification-hook.sh",
-            "timeout": 500,
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-The Notification hook receives JSON via stdin. Create a small wrapper script
-that parses the input and calls `scripts/notify.sh`.
-
-## Best Practices
-
-### Use Background Mode
-
-If you want non-blocking hooks, set `run_in_background` to `true`:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Set Appropriate Timeouts
-
-Set shorter timeouts for frequent hooks (PostToolUse) and longer for session hooks:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/Notification.sh",
             "timeout": 500
           }
         ]
       }
-    ],
-    "SessionStart": [
+    ]
+  }
+}
+```
+
+#### Hook Input
+
+```json
+{
+  "session_id": "abc123",
+  "hook_event_name": "Notification",
+  "message": "Claude is waiting for your input",
+  "notification_type": "idle_prompt"
+}
+```
+
+### PermissionRequest Hook
+
+Triggered when Claude requests permission to use a tool.
+
+#### Configuration
+
+```json
+{
+  "hooks": {
+    "PermissionRequest": [
       {
+        "matcher": ".*",
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
-            "timeout": 1000
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
-            "timeout": 1000
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PermissionRequest.sh",
+            "timeout": 500
           }
         ]
       }
     ]
   }
+}
+```
+
+The `matcher` field is required for PermissionRequest hooks. Use `.*` to match all permission requests.
+
+## Detailed Notifications
+
+### Like Codex CLI
+
+The Stop hook provides detailed notifications similar to Codex CLI's `last-assistant-message` feature:
+
+1. Reads the `transcript_path` from the hook payload
+2. Parses the transcript JSONL file
+3. Extracts the last assistant text message
+4. Displays it in the Windows toast notification
+
+This shows you what Claude actually did instead of a generic "Claude is ready" message.
+
+### How It Works
+
+```bash
+# The Stop hook receives this payload:
+{
+  "transcript_path": "/path/to/transcript.jsonl"
+}
+
+# It then:
+# 1. Reads the transcript file
+# 2. Finds the last message with role="assistant"
+# 3. Extracts text content from the content array
+# 4. Truncates to first sentence (max 150 chars)
+# 5. Shows in Windows toast notification
+```
+
+## Avoiding Duplicate Notifications
+
+### Problem
+
+If you see duplicate notifications, you may have hooks configured in multiple places:
+
+1. **Project-level**: `.claude/settings.json` in your project
+2. **User-level**: `~/.claude/settings.json` in your home directory
+
+### Solution
+
+Configure hooks in **only one location**. For project-specific notifications, use project-level settings only.
+
+To check for duplicate configurations:
+
+```bash
+# Check project-level hooks
+cat .claude/settings.json | grep -A 20 "hooks"
+
+# Check user-level hooks
+cat ~/.claude/settings.json | grep -A 20 "hooks"
+```
+
+If both have hooks configured, remove them from `~/.claude/settings.json`:
+
+```json
+{
+  "alwaysThinkingEnabled": true,
+  "enabledPlugins": {...}
+  // Remove the "hooks" section
+}
+```
+
+## Best Practices
+
+### Keep Timeout Values Low
+
+Set reasonable timeouts (500ms is usually sufficient):
+
+```json
+{
+  "timeout": 500
 }
 ```
 
 ### Match Notification Types to Events
 
-Use appropriate notification types for different events:
+- **Success**: Stop hook (Claude finished successfully)
+- **Information**: Notification hook (idle prompts)
+- **Warning**: PermissionRequest hook (needs user action)
 
-- **Success**: SessionStart, completed operations
-- **Information**: General updates, summaries
-- **Warning**: Long operations, warnings
-- **Error**: Failed operations
+### Check Logs for Debugging
 
-### Use Duration Settings
+Hooks log to `logs/hooks.log` in the project directory:
 
-Match notification duration to importance:
-
-- **Short**: Frequent updates (PostToolUse)
-- **Normal**: Session events (SessionStart, SessionEnd)
-- **Long**: Important notifications
-
-### Avoid Notification Spam
-
-Don't enable PostToolUse for every operation if you have many. Consider:
-
-1. Only notifying on specific tools
-2. Only notifying on long operations
-3. Using shorter durations
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-## Complete Hook Configuration Example
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
-            "timeout": 1000,
-            "run_in_background": true
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "timeout": 500,
-            "run_in_background": true
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
-            "timeout": 1000,
-            "run_in_background": true
-          }
-        ]
-      }
-    ],
-    "Notification": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/your-notification-hook.sh",
-            "timeout": 500,
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
+```bash
+tail -f logs/hooks.log
 ```
 
 ## Troubleshooting
@@ -539,10 +330,9 @@ Don't enable PostToolUse for every operation if you have many. Consider:
 
 **Solutions**:
 
-1. Verify the path is correct:
+1. Verify the script path is correct:
 ```bash
-# Check if the PowerShell script exists
-test -f /home/yourusername/claude_notification_wsl2/windows/wsl-toast.ps1 && echo "Found" || echo "Not found"
+test -f hooks/Stop.sh && echo "Found" || echo "Not found"
 ```
 
 2. Verify PowerShell is available:
@@ -550,7 +340,26 @@ test -f /home/yourusername/claude_notification_wsl2/windows/wsl-toast.ps1 && ech
 powershell.exe -Command "Write-Host 'PowerShell works'"
 ```
 
-3. Check Claude Code logs for errors
+3. Check the logs:
+```bash
+cat logs/hooks.log
+```
+
+### Duplicate Notifications
+
+**Problem**: Receiving duplicate notifications.
+
+**Solution**: Check for hooks configured in multiple locations:
+
+```bash
+# Check project-level
+cat .claude/settings.json | grep -A 10 "hooks"
+
+# Check user-level
+cat ~/.claude/settings.json | grep -A 10 "hooks"
+```
+
+Remove hooks from `~/.claude/settings.json` if both have them.
 
 ### Notification Not Appearing
 
@@ -558,52 +367,15 @@ powershell.exe -Command "Write-Host 'PowerShell works'"
 
 **Solutions**:
 
-1. Test the script manually:
+1. Test the notify script manually:
 ```bash
-powershell.exe -NoProfile -NonInteractive -File "$(wslpath -w /home/yourusername/claude_notification_wsl2/windows/wsl-toast.ps1)" -Title "Test" -Message "Manual test" -Type Information
+./scripts/notify.sh --title "Test" --message "Manual test" --type Success
 ```
 
-2. Check PowerShell accessibility:
-```bash
-powershell.exe -Command "Write-Host 'PowerShell works'"
-```
-
-3. Check Windows notification settings:
+2. Check Windows notification settings:
 - Windows Settings > System > Notifications
 - Ensure notifications are enabled
 - Check Focus Assist settings
-
-### Hook Blocks Claude Code
-
-**Problem**: Hook execution blocks Claude Code operations.
-
-**Solution**: Set `run_in_background` to `true` for non-blocking execution:
-
-```json
-{
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "run_in_background": true
-          }
-        ]
-      }
-    ]
-  }
-}
-```
-
-### Variables Not Substituted
-
-**Problem**: Variables appear as literal text like `{tool_name}`.
-
-**Solution**: Claude Code no longer interpolates `{...}` placeholders. Parse the
-hook JSON from stdin inside your hook script.
 
 ### Timeout Errors
 
@@ -613,102 +385,40 @@ hook JSON from stdin inside your hook script.
 
 ```json
 {
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": ".*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "timeout": 2000
-          }
-        ]
-      }
-    ]
-  }
+  "timeout": 1000
 }
 ```
 
-Or use background mode for immediate return.
-
 ## Testing Hooks
 
-### Test PostToolUse Hook
+### Test Stop Hook
 
 ```bash
-# Perform a simple Read operation
-# This should trigger PostToolUse hook
-echo "test" > test.txt
-```
-
-### Test SessionStart Hook
-
-```bash
-# Restart Claude Code
-# SessionStart hook should execute automatically
-```
-
-### Test SessionEnd Hook
-
-```bash
-# Exit Claude Code gracefully
-# SessionEnd hook should execute automatically
+# Simulate a Stop hook call
+echo '{"session_id":"test","transcript_path":"/path/to/transcript.jsonl","hook_event_name":"Stop"}' | bash hooks/Stop.sh
 ```
 
 ### Test Notification Hook
 
-Trigger a notification from within Claude Code (if supported):
-
-```
-/notify "Test Title" "Test Message" "Information"
-```
-
-## Hook Performance Considerations
-
-### Execution Time
-
-Hooks should execute quickly to avoid impacting Claude Code responsiveness:
-
-- Use background mode for non-blocking execution
-- Keep timeout values low (500-1000ms)
-- Avoid heavy processing in hooks
-
-### Frequency
-
-PostToolUse hooks execute frequently. Consider:
-
-- Disabling for development if too frequent
-- Only enabling for specific tools
-- Using Short duration to avoid clutter
-
-### Resource Usage
-
-Monitor resource usage if hooks are very frequent:
-
 ```bash
-# Check process count
-ps aux | rg "wsl-toast.ps1" | wc -l
+# Simulate a Notification hook call
+echo '{"message":"Test notification","notification_type":"test"}' | bash hooks/Notification.sh
 ```
-
-Background processes are automatically cleaned up, but monitoring is recommended for heavy usage.
 
 ## Disabling Hooks
 
-To disable individual hooks, remove the entry or set it to an empty array:
+To disable individual hooks, remove the entry from `.claude/settings.json`:
 
 ```json
 {
   "hooks": {
-    "PostToolUse": []
+    "Stop": []
   }
 }
 ```
 
-If you used `scripts/notify.sh`, you can also disable notifications globally:
+Or disable notifications globally:
 
 ```bash
 export WSL_TOAST_ENABLED=false
 ```
-
-Direct PowerShell hook commands ignore `WSL_TOAST_ENABLED`.

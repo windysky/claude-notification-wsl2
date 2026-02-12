@@ -12,7 +12,8 @@ A complete notification framework that enables Windows toast notifications from 
 - Non-blocking toast notifications to Windows Action Center from WSL2
 - Multi-language support with UTF-8 encoding (English, Korean, Japanese, Chinese)
 - Configurable notification types (Information, Warning, Error, Success)
-- Claude Code hooks integration (PostToolUse, SessionStart, SessionEnd)
+- Claude Code hooks integration (Stop, Notification, PermissionRequest)
+- **Detailed notifications** - Extracts last assistant message from transcript (like Codex CLI)
 - Graceful fallback to Windows Forms Balloon Tip
 - Background execution mode for hooks
 - Template-based notification system
@@ -84,44 +85,39 @@ Notifications use sensible defaults by default. Configuration is stored in `~/.w
 
 Add to your `.claude/settings.json`:
 
-**Hook scripts (recommended)** - Uses the included hook scripts that read hook JSON from stdin:
-
 ```json
 {
   "hooks": {
-    "PostToolUse": [
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/Stop.sh",
+            "timeout": 500
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/hooks/Notification.sh",
+            "timeout": 500
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
       {
         "matcher": ".*",
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PostToolUse.sh",
-            "timeout": 500,
-            "run_in_background": true
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionStart.sh",
-            "timeout": 1000,
-            "run_in_background": true
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/SessionEnd.sh",
-            "timeout": 1000,
-            "run_in_background": true
+            "command": "$CLAUDE_PROJECT_DIR/hooks/PermissionRequest.sh",
+            "timeout": 500
           }
         ]
       }
@@ -129,6 +125,10 @@ Add to your `.claude/settings.json`:
   }
 }
 ```
+
+### Detailed Notifications (Like Codex CLI)
+
+The Stop hook extracts the last assistant message from the transcript file to provide detailed notifications, similar to Codex CLI's `last-assistant-message` feature. This shows you what Claude actually did in the notification instead of a generic message.
 
 ### Notification Types
 
@@ -292,7 +292,7 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.1.0 (2026-01-12)
+Version 1.2.0 (2026-02-11)
 
 ## Authors
 

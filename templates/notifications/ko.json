@@ -34,5 +34,17 @@
   "test_failed": {
     "title": "테스트 실패",
     "message": "일부 테스트가 실패했습니다"
+  },
+  "stop": {
+    "title": "Claude Code 준비됨",
+    "message": "Claude가 작업을 완료하고 다음 지시를 기다립니다"
+  },
+  "notification": {
+    "title": "Claude Code 알림",
+    "message": "Claude Code에서 알림을 보냈습니다"
+  },
+  "permission_request": {
+    "title": "권한 필요",
+    "message": "Claude가 계속하려면 권한이 필요합니다"
   }
 }

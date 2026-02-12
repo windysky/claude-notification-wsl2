@@ -34,5 +34,17 @@
   "test_failed": {
     "title": "Tests Failed",
     "message": "Some tests have failed"
+  },
+  "stop": {
+    "title": "Claude Code Ready",
+    "message": "Claude has finished and is waiting for your next instruction"
+  },
+  "notification": {
+    "title": "Claude Code Notification",
+    "message": "Claude Code sent a notification"
+  },
+  "permission_request": {
+    "title": "Permission Required",
+    "message": "Claude needs your permission to continue"
   }
 }

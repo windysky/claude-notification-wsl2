@@ -405,9 +405,10 @@ install_hook_scripts() {
     local target_dir="${HOME}/.claude/hooks/wsl-toast"
     local source_dir="${PROJECT_ROOT}/hooks"
 
-    # Create target directory
+    # Create target directories
     mkdir -p "$target_dir"
     mkdir -p "${target_dir}/templates"
+    mkdir -p "${target_dir}/windows"
 
     # Copy hook scripts
     local hooks=("Notification.sh" "Stop.sh" "PermissionRequest.sh")
@@ -434,6 +435,13 @@ install_hook_scripts() {
     if [ -d "$templates_source" ]; then
         cp -r "$templates_source"/* "${target_dir}/templates/" 2>/dev/null || true
         log_info "Installed: notification templates"
+    fi
+
+    # Copy Windows PowerShell script
+    local windows_source="${PROJECT_ROOT}/windows"
+    if [ -d "$windows_source" ]; then
+        cp -r "$windows_source"/* "${target_dir}/windows/" 2>/dev/null || true
+        log_info "Installed: PowerShell scripts"
     fi
 
     log_success "Hook scripts installed to ${target_dir}"

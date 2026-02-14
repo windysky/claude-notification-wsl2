@@ -16,12 +16,42 @@ if command -v readlink &>/dev/null; then
     SCRIPT_PATH="$(readlink -f "$SCRIPT_PATH" 2>/dev/null || echo "$SCRIPT_PATH")"
 fi
 SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 CONFIG_DIR="${HOME}/.wsl-toast"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
 
+# Find PowerShell script directory
+# Check in order: same directory (installed), project directory (development)
+find_windows_dir() {
+    # Check if windows/ exists in same directory as script
+    if [ -d "${SCRIPT_DIR}/windows" ]; then
+        echo "${SCRIPT_DIR}/windows"
+        return
+    fi
+    # Check project directory (parent of hooks/ or scripts/)
+    local parent_dir="$(cd "${SCRIPT_DIR}/.." && pwd)"
+    if [ -d "${parent_dir}/windows" ]; then
+        echo "${parent_dir}/windows"
+        return
+    fi
+    # Check grandparent (for hooks/ inside .claude/hooks/wsl-toast/)
+    local grandparent_dir="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+    if [ -d "${grandparent_dir}/windows" ]; then
+        echo "${grandparent_dir}/windows"
+        return
+    fi
+    # Fallback - will show error later
+    echo ""
+}
+
+WINDOWS_DIR=$(find_windows_dir)
+PROJECT_ROOT="${WINDOWS_DIR:-${SCRIPT_DIR}/..}"
+
 # PowerShell script path (Windows side)
-PS_SCRIPT_DIR="$(wslpath -w "${PROJECT_ROOT}/windows" 2>/dev/null || echo "C:\\Users\\$USER\\.wsl-toast")"
+if [ -n "$WINDOWS_DIR" ]; then
+    PS_SCRIPT_DIR="$(wslpath -w "$WINDOWS_DIR" 2>/dev/null || echo "C:\\Users\\$USER\\.wsl-toast")"
+else
+    PS_SCRIPT_DIR="$(wslpath -w "${PROJECT_ROOT}/windows" 2>/dev/null || echo "C:\\Users\\$USER\\.wsl-toast")"
+fi
 PS_SCRIPT_PATH="${PS_SCRIPT_DIR}\\wsl-toast.ps1"
 
 # Default values
@@ -337,8 +367,10 @@ send_notification() {
         return $EXIT_SUCCESS
     fi
 
-    if [[ ! -f "${PROJECT_ROOT}/windows/wsl-toast.ps1" ]]; then
-        log_error "PowerShell script not found at: ${PROJECT_ROOT}/windows/wsl-toast.ps1"
+    if [[ -z "$WINDOWS_DIR" ]] || [[ ! -f "${WINDOWS_DIR}/wsl-toast.ps1" ]]; then
+        log_error "PowerShell script not found. Searched in:"
+        log_error "  - ${SCRIPT_DIR}/windows/"
+        log_error "  - ${SCRIPT_DIR}/../windows/"
         return $EXIT_SCRIPT_NOT_FOUND
     fi
 

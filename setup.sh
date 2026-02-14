@@ -540,28 +540,31 @@ for legacy_hook in ("PostToolUse", "SessionStart", "SessionEnd"):
         hooks.pop(legacy_hook, None)
         changed = True
 
+# Use absolute path so hooks work from any project directory
+hooks_dir = f"{project_root}/hooks"
+
 if os.environ.get("HOOK_ENABLE_NOTIFICATION") == "true":
     if set_hook(
         "Notification",
-        build_hook("$CLAUDE_PROJECT_DIR/hooks/Notification.sh", notification_timeout),
+        build_hook(f"{hooks_dir}/Notification.sh", notification_timeout),
     ):
         changed = True
 if os.environ.get("HOOK_ENABLE_PERMISSIONREQUEST") == "true":
     if set_hook(
         "PermissionRequest",
-        build_hook("$CLAUDE_PROJECT_DIR/hooks/PermissionRequest.sh", permission_timeout, ".*"),
+        build_hook(f"{hooks_dir}/PermissionRequest.sh", permission_timeout, ".*"),
     ):
         changed = True
 if os.environ.get("HOOK_ENABLE_STOP") == "true":
     if set_hook(
         "Stop",
-        build_hook("$CLAUDE_PROJECT_DIR/hooks/Stop.sh", stop_timeout),
+        build_hook(f"{hooks_dir}/Stop.sh", stop_timeout),
     ):
         changed = True
 if os.environ.get("HOOK_ENABLE_SUBAGENTSTOP") == "true":
     if set_hook(
         "SubagentStop",
-        build_hook("$CLAUDE_PROJECT_DIR/hooks/SubagentStop.sh", subagent_timeout),
+        build_hook(f"{hooks_dir}/SubagentStop.sh", subagent_timeout),
     ):
         changed = True
 

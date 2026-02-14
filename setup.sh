@@ -540,8 +540,15 @@ for legacy_hook in ("PostToolUse", "SessionStart", "SessionEnd"):
         hooks.pop(legacy_hook, None)
         changed = True
 
-# Use absolute path so hooks work from any project directory
-hooks_dir = f"{project_root}/hooks"
+# Use $HOME-relative path so hooks work from any project directory
+# This makes the configuration portable across machines with different usernames
+home_dir = os.path.expanduser("~")
+if project_root.startswith(home_dir):
+    # Replace absolute home path with $HOME for portability
+    hooks_dir = f"$HOME{project_root[len(home_dir):]}/hooks"
+else:
+    # Fallback to absolute path if not under home directory
+    hooks_dir = f"{project_root}/hooks"
 
 if os.environ.get("HOOK_ENABLE_NOTIFICATION") == "true":
     if set_hook(

@@ -292,7 +292,14 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.2.0 (2026-02-11)
+Version 1.2.1 (2026-02-14)
+
+### Changelog
+
+- **1.2.1** (2026-02-14): Fixed global hook paths to use `$HOME` for portability across different usernames
+- **1.2.0** (2026-02-11): Added detailed notifications (Codex CLI style), extracts last assistant message from transcript
+- **1.1.0** (2026-01-12): Added multi-language support (EN, KO, JA, ZH), hook scripts for Stop/Notification/PermissionRequest
+- **1.0.0** (2026-01-10): Initial release with PowerShell BurntToast integration
 
 ## Authors
 

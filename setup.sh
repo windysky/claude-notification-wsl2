@@ -3,7 +3,7 @@
 # Installs Windows toast notification system for Claude Code CLI on WSL2
 #
 # Author: Claude Code TDD Implementation
-# Version: 1.1.0
+# Version: 1.2.1
 # License: MIT
 
 set -euo pipefail

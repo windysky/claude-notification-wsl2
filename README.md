@@ -292,10 +292,11 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.2.1 (2026-02-14)
+Version 1.2.2 (2026-02-14)
 
 ### Changelog
 
+- **1.2.2** (2026-02-14): Hooks now installed to `~/.claude/hooks/wsl-toast/` for cleaner separation from project directory
 - **1.2.1** (2026-02-14): Fixed global hook paths to use `$HOME` for portability across different usernames
 - **1.2.0** (2026-02-11): Added detailed notifications (Codex CLI style), extracts last assistant message from transcript
 - **1.1.0** (2026-01-12): Added multi-language support (EN, KO, JA, ZH), hook scripts for Stop/Notification/PermissionRequest

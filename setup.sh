@@ -3,7 +3,7 @@
 # Installs Windows toast notification system for Claude Code CLI on WSL2
 #
 # Author: Claude Code TDD Implementation
-# Version: 1.2.1
+# Version: 1.2.2
 # License: MIT
 
 set -euo pipefail
@@ -394,6 +394,53 @@ create_symlink() {
     return 0
 }
 
+install_hook_scripts() {
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "Dry run: would install hook scripts to ${HOME}/.claude/hooks/wsl-toast/"
+        return 0
+    fi
+
+    log_info "Installing hook scripts to ${HOME}/.claude/hooks/wsl-toast/..."
+
+    local target_dir="${HOME}/.claude/hooks/wsl-toast"
+    local source_dir="${PROJECT_ROOT}/hooks"
+
+    # Create target directory
+    mkdir -p "$target_dir"
+    mkdir -p "${target_dir}/templates"
+
+    # Copy hook scripts
+    local hooks=("Notification.sh" "Stop.sh" "PermissionRequest.sh")
+    for hook in "${hooks[@]}"; do
+        if [ -f "${source_dir}/${hook}" ]; then
+            cp "${source_dir}/${hook}" "${target_dir}/${hook}"
+            chmod +x "${target_dir}/${hook}"
+            log_info "Installed: ${hook}"
+        else
+            log_warning "Hook script not found: ${hook}"
+        fi
+    done
+
+    # Copy the notify.sh script (dependency for hooks)
+    local notify_script="${PROJECT_ROOT}/scripts/notify.sh"
+    if [ -f "$notify_script" ]; then
+        cp "$notify_script" "${target_dir}/notify.sh"
+        chmod +x "${target_dir}/notify.sh"
+        log_info "Installed: notify.sh (hook dependency)"
+    fi
+
+    # Copy notification templates
+    local templates_source="${PROJECT_ROOT}/templates/notifications"
+    if [ -d "$templates_source" ]; then
+        cp -r "$templates_source"/* "${target_dir}/templates/" 2>/dev/null || true
+        log_info "Installed: notification templates"
+    fi
+
+    log_success "Hook scripts installed to ${target_dir}"
+
+    return 0
+}
+
 configure_claude_hooks() {
     if ! command -v python3 &>/dev/null; then
         log_warning "Python 3 not found. Skipping Claude Code hook configuration."
@@ -540,15 +587,9 @@ for legacy_hook in ("PostToolUse", "SessionStart", "SessionEnd"):
         hooks.pop(legacy_hook, None)
         changed = True
 
-# Use $HOME-relative path so hooks work from any project directory
-# This makes the configuration portable across machines with different usernames
-home_dir = os.path.expanduser("~")
-if project_root.startswith(home_dir):
-    # Replace absolute home path with $HOME for portability
-    hooks_dir = f"$HOME{project_root[len(home_dir):]}/hooks"
-else:
-    # Fallback to absolute path if not under home directory
-    hooks_dir = f"{project_root}/hooks"
+# Use global hooks directory for portability
+# Hooks are installed to ~/.claude/hooks/wsl-toast/ by install_hook_scripts()
+hooks_dir = "$HOME/.claude/hooks/wsl-toast"
 
 if os.environ.get("HOOK_ENABLE_NOTIFICATION") == "true":
     if set_hook(
@@ -737,6 +778,11 @@ main() {
     if ! create_symlink; then
         log_warning "Failed to create symbolic link"
     fi
+
+    echo
+
+    # Install hook scripts to ~/.claude/hooks/wsl-toast/
+    install_hook_scripts
 
     echo
 

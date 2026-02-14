@@ -9,10 +9,27 @@
 
 # Script directory and paths
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-NOTIFY_SCRIPT="${PROJECT_ROOT}/scripts/notify.sh"
 CONFIG_DIR="${HOME}/.wsl-toast"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
+
+# Find notify.sh - check same directory first (installed), then project directory
+if [ -f "${SCRIPT_DIR}/notify.sh" ]; then
+    NOTIFY_SCRIPT="${SCRIPT_DIR}/notify.sh"
+else
+    PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+    NOTIFY_SCRIPT="${PROJECT_ROOT}/scripts/notify.sh"
+fi
+
+# Find templates - check same directory first (installed), then project directory
+find_template() {
+    local language="$1"
+    if [ -f "${SCRIPT_DIR}/templates/${language}.json" ]; then
+        echo "${SCRIPT_DIR}/templates/${language}.json"
+    else
+        PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+        echo "${PROJECT_ROOT}/templates/notifications/${language}.json"
+    fi
+}
 
 # Exit if notify script doesn't exist
 if [ ! -f "$NOTIFY_SCRIPT" ]; then
@@ -34,7 +51,7 @@ DETAIL=""
 TOOL_NAME=""
 
 if command -v python3 &>/dev/null; then
-    TEMPLATE_JSON="${PROJECT_ROOT}/templates/notifications/${LANGUAGE}.json"
+    TEMPLATE_JSON=$(find_template "$LANGUAGE")
     if [ -f "$TEMPLATE_JSON" ]; then
         TEMPLATE_DATA=$(python3 -c "import json; data=json.load(open('$TEMPLATE_JSON')); print(data.get('permission_request', {}).get('title', '$TITLE')); print(data.get('permission_request', {}).get('message', '$MESSAGE'))" 2>/dev/null)
         if [ -n "$TEMPLATE_DATA" ]; then

@@ -311,10 +311,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.3.1 (2026-04-17)
+Version 1.3.2 (2026-04-17)
 
 ### Changelog
 
+- **1.3.2** (2026-04-17):
+  - `scripts/notify.sh` now passes `-ExecutionPolicy Bypass` when invoking `wsl-toast.ps1`. WSL paths (`\\wsl.localhost\...`) are treated as remote by Windows PowerShell; the default `RemoteSigned` policy blocks unsigned remote scripts, so toasts silently failed on fresh WSL installs. Fixes the "spinner works but no toast" case.
 - **1.3.1** (2026-04-17):
   - `setup.sh` now installs the v1.3.0 spinner helpers (`_spinner.sh`, `UserPromptSubmit.sh`) and registers the `UserPromptSubmit` hook in `~/.claude/settings.json`
   - Installer sets `"spinnerTipsEnabled": false` at the top level of `settings.json` when the spinner hook is enabled, so Claude Code's built-in title spinner doesn't fight the hook

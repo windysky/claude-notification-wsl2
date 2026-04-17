@@ -288,6 +288,8 @@ build_powershell_args() {
     POWERSHELL_ARGS=()
     POWERSHELL_ARGS+=("-NoProfile")
     POWERSHELL_ARGS+=("-NonInteractive")
+    # WSL paths (\\wsl.localhost\...) are treated as remote by Windows; RemoteSigned blocks them.
+    POWERSHELL_ARGS+=("-ExecutionPolicy" "Bypass")
     POWERSHELL_ARGS+=("-File" "$PS_SCRIPT_PATH")
     POWERSHELL_ARGS+=("-Title" "$title")
     POWERSHELL_ARGS+=("-Message" "$message")

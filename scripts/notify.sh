@@ -59,6 +59,8 @@ DEFAULT_TYPE="Information"
 DEFAULT_DURATION="Normal"
 MOCK_MODE="${MOCK_MODE:-false}"
 BACKGROUND_MODE=false
+# Silent by default in v1.3.0+; --sound re-enables the Windows notification ding.
+SILENT_MODE="${WSL_TOAST_SILENT:-true}"
 
 # Exit codes
 EXIT_SUCCESS=0
@@ -109,12 +111,15 @@ OPTIONS:
                                 (default: Normal)
     -l, --logo <path>            Path to custom icon/image
     -b, --background             Run in background (non-blocking, for hooks)
+    -s, --silent                 Suppress the Windows notification ding (default)
+    --sound                      Play the Windows notification ding
     --mock                       Mock mode: don't display actual notification
     -h, --help                   Show this help message
     -v, --verbose                Enable verbose output
 
 ENVIRONMENT VARIABLES:
     WSL_TOAST_ENABLED            Enable/disable notifications (default: true)
+    WSL_TOAST_SILENT             Silent mode: true (default) or false
     WSL_TOAST_TYPE               Default notification type
     WSL_TOAST_DURATION           Default notification duration
     WSL_TOAST_CONFIG             Path to config file (default: ~/.wsl-toast/config.json)
@@ -186,6 +191,25 @@ apply_config() {
                     ;;
                 default_duration)
                     DEFAULT_DURATION="${value:-$DEFAULT_DURATION}"
+                    ;;
+                silent)
+                    local silent_lower="${value,,}"
+                    if [[ "$silent_lower" == "false" || "$silent_lower" == "0" || "$silent_lower" == "no" ]]; then
+                        SILENT_MODE="false"
+                    else
+                        SILENT_MODE="true"
+                    fi
+                    ;;
+                sound_enabled)
+                    # Legacy key (v1.2 and earlier): sound_enabled=true means ding enabled.
+                    # Only applied if the newer "silent" key was NOT set above (we process
+                    # in file order; if silent was set earlier it stays).
+                    local sound_lower="${value,,}"
+                    if [[ "$sound_lower" == "false" || "$sound_lower" == "0" || "$sound_lower" == "no" ]]; then
+                        SILENT_MODE="true"
+                    fi
+                    # If sound_enabled=true we deliberately do NOT override, so v1.3's
+                    # silent-by-default holds unless the user explicitly sets silent=false.
                     ;;
             esac
         done <<< "$config_output"
@@ -278,6 +302,11 @@ build_powershell_args() {
 
     if [[ "$MOCK_MODE" == "true" ]]; then
         POWERSHELL_ARGS+=("-MockMode")
+    fi
+
+    # Silent/sound handling: PowerShell is silent-by-default; pass -Sound to re-enable.
+    if [[ "$SILENT_MODE" != "true" ]]; then
+        POWERSHELL_ARGS+=("-Sound")
     fi
 }
 
@@ -449,6 +478,14 @@ main() {
                 ;;
             --mock)
                 MOCK_MODE=true
+                shift
+                ;;
+            -s|--silent)
+                SILENT_MODE=true
+                shift
+                ;;
+            --sound)
+                SILENT_MODE=false
                 shift
                 ;;
             -b|--background)

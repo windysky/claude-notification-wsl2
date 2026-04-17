@@ -20,15 +20,18 @@ Claude Code hooks enable automatic notifications at specific events during your 
 
 Hooks are scripts that Claude Code executes at specific points:
 
-- **Stop**: When Claude finishes responding and waits for input
-- **Notification**: When Claude Code sends a notification (e.g., idle prompt)
+- **UserPromptSubmit**: When you submit a prompt — sets a static shell-style terminal title (`user@host: ~/path`) and activates Windows Terminal indeterminate taskbar progress so you know Claude is working. Flicker-free (title is written once, pulsing is done by the terminal itself). Requires `"spinnerTipsEnabled": false` in `~/.claude/settings.json`.
+- **Stop**: When Claude finishes responding and waits for input — clears the taskbar pulse and fires a toast with the last assistant message
+- **Notification**: When Claude Code sends a notification (permission prompt, idle prompt, etc.) — clears the taskbar pulse; `idle_prompt` is suppressed to prevent duplicate toasts after Stop
 - **PermissionRequest**: When Claude requests permission to use a tool
 
 ### Benefits of Hook Integration
 
 - Stay informed without switching windows
-- Get notified when Claude is waiting for your input
+- Know at a glance when Claude is working (static session title + pulsing Windows Terminal taskbar — zero flicker, per-tty state so concurrent sessions stay independent)
+- Get notified when Claude is waiting for your input (exactly once per turn — no duplicates)
 - See detailed messages showing what Claude actually did (like Codex CLI)
+- Silent-by-default toasts — no ding unless you ask for it
 - Receive permission request alerts
 
 ## Hook Configuration

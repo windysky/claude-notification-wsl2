@@ -37,6 +37,13 @@ cat > /tmp/stop_hook_input.json
 cat /tmp/stop_hook_input.json >> "$LOG_FILE"
 echo "" >> "$LOG_FILE"
 
+# Stop the terminal-title spinner before anything else so the title clears
+# even if the toast path bails out below.
+if [ -f "${SCRIPT_DIR}/_spinner.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_spinner.sh" && spinner_stop 2>/dev/null || true
+fi
+
 # Exit if notify script doesn't exist
 if [ ! -f "$NOTIFY_SCRIPT" ]; then
     exit 0

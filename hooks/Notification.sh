@@ -38,6 +38,24 @@ cat > /tmp/notification_hook_input.json
 cat /tmp/notification_hook_input.json >> "$LOG_FILE"
 echo "" >> "$LOG_FILE"
 
+# Any Notification event means Claude is waiting on the user, so stop the
+# working spinner immediately regardless of type.
+if [ -f "${SCRIPT_DIR}/_spinner.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_spinner.sh" && spinner_stop 2>/dev/null || true
+fi
+
+# Suppress idle_prompt to avoid duplicating the Stop hook toast.
+# The Stop hook already announces completion with the last assistant message;
+# idle_prompt fires ~10s later with the same semantic meaning ("waiting for input").
+if command -v python3 &>/dev/null; then
+    NTYPE=$(python3 -c "import json; print(json.load(open('/tmp/notification_hook_input.json')).get('notification_type',''))" 2>/dev/null || echo "")
+    if [ "$NTYPE" = "idle_prompt" ]; then
+        echo "[suppressed idle_prompt duplicate]" >> "$LOG_FILE"
+        exit 0
+    fi
+fi
+
 # Exit if notify script doesn't exist
 if [ ! -f "$NOTIFY_SCRIPT" ]; then
     exit 0

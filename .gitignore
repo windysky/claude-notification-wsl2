@@ -7,6 +7,20 @@
 # ============================================
 
 # ===========================================
+# Go Build Artifacts
+# ===========================================
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+cover.out
+cover.html
+cpu.prof
+mem.prof
+
+# ===========================================
 # Build Artifacts & Distribution
 # ===========================================
 build/
@@ -100,7 +114,6 @@ logs/
 # Backups
 # ===========================================
 .moai-backups/
-archive/
 *.backup/
 *-backup/
 *_backup_*/
@@ -149,6 +162,9 @@ secret-*.*
 .claude/settings.local.*.json
 .claude/.env.local*
 .claude/local/
+.claude/plans/
+.claude/agent-memory/
+.claude/worktrees/
 
 # Skill-specific credentials
 .claude/skills/*/.env*
@@ -156,50 +172,29 @@ secret-*.*
 .claude/skills/*/*/*secret*
 .claude/skills/*/*/*key*
 .claude/skills/*/*/*token*
+# Re-include legitimate skill module files containing "token" in their name
+!.claude/skills/*/modules/*token*.md
 
 # ===========================================
-# .moai/ Directory Management
+# Local-Only Files (never sync via git pull)
 # ===========================================
-# Exclude all .moai/* by default
-.moai/*
+.moai/status_line.sh
+.moai/memory/
+.moai/worktrees/
 
-# Include tracked directories
-!.moai/config/
-!.moai/config/**
-!.moai/memory/
-!.moai/memory/**
-!.moai/project/
-!.moai/project/**
-!.moai/scripts/
-!.moai/scripts/**
-!.moai/specs/
-!.moai/specs/**
-!.moai/announcements/
-!.moai/announcements/**
+# MoAI-ADK runtime directories (per-user local, not part of this repo)
+.moai/
+.agency/
+.claude/agents/
+.claude/commands/
+.claude/hooks/
+.claude/output-styles/
+.claude/rules/
+.claude/skills/
 
-# Legacy config format (migrated to YAML in v0.32.0)
-.moai/config/config.json
-
-# Exclude local-only directories
-.moai/cache/
-.moai/logs/
-.moai/docs/
-.moai/reports/
-.moai/analytics/
-.moai/archive/
-.moai/archived-skills/
-.moai/backups/
-.moai/error_logs/
-.moai/temp/
-.moai/work/
-
-# Exclude local development scripts
-.moai/scripts/phase*.py
-.moai/scripts/phase*.sh
-.moai/scripts/sync-*.sh
-.moai/scripts/sync-*.py
-.moai/scripts/*sync*.sh
-.moai/scripts/__pycache__/
+# Ephemeral session artifacts
+archive/
+resume_session.txt
 
 # ===========================================
 # Node.js (for docs/Nextra)
@@ -223,5 +218,3 @@ dist-ssr/
 .vercel/
 .netlify/
 .firebase/
-.github/workflows/*.yml.bak
-.gitlab-ci.yml.bak

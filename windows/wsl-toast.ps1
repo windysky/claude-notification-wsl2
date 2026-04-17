@@ -72,11 +72,23 @@ param(
     [string]$AppLogo,
 
     [Parameter(Mandatory=$false)]
-    [switch]$MockMode
+    [switch]$MockMode,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Silent,
+
+    [Parameter(Mandatory=$false)]
+    [switch]$Sound
 )
 
 # Ensure UTF-8 output for WSL callers
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
+# Silent by default in v1.3.0+; -Sound re-enables the Windows notification ding.
+# -Silent remains a no-op for forward/backward compatibility.
+$script:IsSilent = $true
+if ($Sound.IsPresent) { $script:IsSilent = $false }
+if ($Silent.IsPresent) { $script:IsSilent = $true }
 
 #region Helper Functions
 
@@ -516,6 +528,10 @@ function Show-ToastNotification {
 
             if ($burntToastDuration -and ($paramNames -contains 'Duration')) {
                 $btParams.Duration = $burntToastDuration
+            }
+
+            if ($script:IsSilent -and ($paramNames -contains 'Silent')) {
+                $btParams.Silent = $true
             }
 
             $null = New-BurntToastNotification @btParams

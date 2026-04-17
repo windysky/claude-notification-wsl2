@@ -10,9 +10,12 @@ A complete notification framework that enables Windows toast notifications from 
 ## Features
 
 - Non-blocking toast notifications to Windows Action Center from WSL2
+- **Silent-by-default** toasts (no Windows notification ding); `--sound` to re-enable
+- **Flicker-free busy indicator** — sets a static shell-style title (`user@host: ~/path`) and pulses the Windows Terminal taskbar icon (OSC 9;4;3) while Claude is processing your prompt. State is keyed per-tty so concurrent CC sessions stay independent.
+- **Dedup hook logic** - suppresses Claude Code's `idle_prompt` notification so you only get one toast per turn
 - Multi-language support with UTF-8 encoding (English, Korean, Japanese, Chinese)
 - Configurable notification types (Information, Warning, Error, Success)
-- Claude Code hooks integration (Stop, Notification, PermissionRequest)
+- Claude Code hooks integration (UserPromptSubmit, Stop, Notification, PermissionRequest)
 - **Detailed notifications** - Extracts last assistant message from transcript (like Codex CLI)
 - Graceful fallback to Windows Forms Balloon Tip
 - Background execution mode for hooks
@@ -76,10 +79,13 @@ Notifications use sensible defaults by default. Configuration is stored in `~/.w
   "default_type": "Information",
   "default_duration": "Normal",
   "language": "en",
-  "sound_enabled": true,
+  "silent": true,
+  "sound_enabled": false,
   "position": "top_right"
 }
 ```
+
+`silent: true` (the v1.3+ default) suppresses the Windows notification ding. Set `silent: false` if you want the ding back. `sound_enabled` is honored for backward compatibility.
 
 ### Claude Code Hooks Integration
 
@@ -88,13 +94,24 @@ Add to your `.claude/settings.json`:
 ```json
 {
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/wsl-toast/UserPromptSubmit.sh",
+            "timeout": 1000
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/Stop.sh",
-            "timeout": 500
+            "command": "$HOME/.claude/hooks/wsl-toast/Stop.sh",
+            "timeout": 1000
           }
         ]
       }
@@ -104,8 +121,8 @@ Add to your `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/Notification.sh",
-            "timeout": 500
+            "command": "$HOME/.claude/hooks/wsl-toast/Notification.sh",
+            "timeout": 1000
           }
         ]
       }
@@ -116,8 +133,8 @@ Add to your `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/hooks/PermissionRequest.sh",
-            "timeout": 500
+            "command": "$HOME/.claude/hooks/wsl-toast/PermissionRequest.sh",
+            "timeout": 1000
           }
         ]
       }
@@ -172,6 +189,8 @@ OPTIONS:
     -d, --duration <duration>    Short, Normal, Long (default: Normal)
     -l, --logo <path>            Path to custom icon/image
     -b, --background             Run in background (non-blocking)
+    -s, --silent                 Suppress the Windows notification ding (default)
+    --sound                      Play the Windows notification ding
     --mock                       Mock mode: don't display notification
     -h, --help                   Show help message
     -v, --verbose                Enable verbose output
@@ -292,10 +311,17 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.2.2 (2026-02-14)
+Version 1.3.0 (2026-04-16)
 
 ### Changelog
 
+- **1.3.0** (2026-04-16):
+  - Silent-by-default toasts (BurntToast `-Silent`); `--sound` / `silent: false` to opt back in
+  - Suppress Claude Code `idle_prompt` notifications to kill the duplicate toast ~10s after Stop
+  - New `UserPromptSubmit` hook sets a static shell-style title (`user@host: ~/path`) and activates Windows Terminal indeterminate taskbar progress (OSC 9;4;3) so you can tell at a glance when Claude is working — fully flicker-free, no title animation loop
+  - Per-tty state files (`~/.wsl-toast/spinner-<tty>.*`) so concurrent CC sessions don't clobber each other
+  - Requires `"spinnerTipsEnabled": false` in `~/.claude/settings.json` to prevent CC's built-in title updates from overwriting ours
+  - Shared helper `hooks/_spinner.sh` handles start/stop, parent-TTY discovery, and title composition
 - **1.2.2** (2026-02-14): Hooks now installed to `~/.claude/hooks/wsl-toast/` for cleaner separation from project directory
 - **1.2.1** (2026-02-14): Fixed global hook paths to use `$HOME` for portability across different usernames
 - **1.2.0** (2026-02-11): Added detailed notifications (Codex CLI style), extracts last assistant message from transcript

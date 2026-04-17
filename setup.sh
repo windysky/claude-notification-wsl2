@@ -3,7 +3,7 @@
 # Installs Windows toast notification system for Claude Code CLI on WSL2
 #
 # Author: Claude Code TDD Implementation
-# Version: 1.2.2
+# Version: 1.3.1
 # License: MIT
 
 set -euo pipefail
@@ -321,7 +321,8 @@ create_default_config() {
   "default_type": "Information",
   "default_duration": "Normal",
   "language": "en",
-  "sound_enabled": true,
+  "silent": true,
+  "sound_enabled": false,
   "position": "top_right"
 }
 EOF
@@ -410,8 +411,8 @@ install_hook_scripts() {
     mkdir -p "${target_dir}/templates"
     mkdir -p "${target_dir}/windows"
 
-    # Copy hook scripts
-    local hooks=("Notification.sh" "Stop.sh" "PermissionRequest.sh")
+    # Copy hook scripts (including v1.3.0 spinner helpers)
+    local hooks=("Notification.sh" "Stop.sh" "PermissionRequest.sh" "UserPromptSubmit.sh" "_spinner.sh")
     for hook in "${hooks[@]}"; do
         if [ -f "${source_dir}/${hook}" ]; then
             cp "${source_dir}/${hook}" "${target_dir}/${hook}"
@@ -466,11 +467,12 @@ configure_claude_hooks() {
         fi
     fi
 
-    local enable_notification enable_permissionrequest enable_stop enable_subagentstop
+    local enable_notification enable_permissionrequest enable_stop enable_subagentstop enable_userpromptsubmit
     enable_notification=false
     enable_permissionrequest=false
     enable_stop=false
     enable_subagentstop=false
+    enable_userpromptsubmit=false
 
     if prompt_yes_no "Enable Notification hook? [Y/n]: " "Y"; then
         enable_notification=true
@@ -481,16 +483,19 @@ configure_claude_hooks() {
     if prompt_yes_no "Enable Stop hook? [Y/n]: " "Y"; then
         enable_stop=true
     fi
+    if prompt_yes_no "Enable UserPromptSubmit hook (terminal title/taskbar spinner)? [Y/n]: " "Y"; then
+        enable_userpromptsubmit=true
+    fi
     if prompt_yes_no "Enable SubagentStop hook? [y/N]: " "N"; then
         enable_subagentstop=true
     fi
 
-    if [[ "$enable_notification" != "true" && "$enable_permissionrequest" != "true" && "$enable_stop" != "true" && "$enable_subagentstop" != "true" ]]; then
+    if [[ "$enable_notification" != "true" && "$enable_permissionrequest" != "true" && "$enable_stop" != "true" && "$enable_subagentstop" != "true" && "$enable_userpromptsubmit" != "true" ]]; then
         log_info "No hooks selected. Skipping Claude Code hook configuration."
         return 0
     fi
 
-    local notification_timeout permission_timeout stop_timeout subagent_timeout
+    local notification_timeout permission_timeout stop_timeout subagent_timeout userpromptsubmit_timeout
     if [[ "$enable_notification" == "true" ]]; then
         notification_timeout="$(prompt_value "Notification timeout in ms (default: 1000): " "1000")"
     fi
@@ -499,6 +504,9 @@ configure_claude_hooks() {
     fi
     if [[ "$enable_stop" == "true" ]]; then
         stop_timeout="$(prompt_value "Stop timeout in ms (default: 1000): " "1000")"
+    fi
+    if [[ "$enable_userpromptsubmit" == "true" ]]; then
+        userpromptsubmit_timeout="$(prompt_value "UserPromptSubmit timeout in ms (default: 1000): " "1000")"
     fi
     if [[ "$enable_subagentstop" == "true" ]]; then
         subagent_timeout="$(prompt_value "SubagentStop timeout in ms (default: 1000): " "1000")"
@@ -510,10 +518,12 @@ configure_claude_hooks() {
     export HOOK_PERMISSION_TIMEOUT="${permission_timeout:-1000}"
     export HOOK_STOP_TIMEOUT="${stop_timeout:-1000}"
     export HOOK_SUBAGENTSTOP_TIMEOUT="${subagent_timeout:-1000}"
+    export HOOK_USERPROMPTSUBMIT_TIMEOUT="${userpromptsubmit_timeout:-1000}"
     export HOOK_ENABLE_NOTIFICATION="$enable_notification"
     export HOOK_ENABLE_PERMISSIONREQUEST="$enable_permissionrequest"
     export HOOK_ENABLE_STOP="$enable_stop"
     export HOOK_ENABLE_SUBAGENTSTOP="$enable_subagentstop"
+    export HOOK_ENABLE_USERPROMPTSUBMIT="$enable_userpromptsubmit"
     export DRY_RUN
 
     local hook_status
@@ -539,6 +549,7 @@ notification_timeout = parse_timeout(os.environ.get("HOOK_NOTIFICATION_TIMEOUT")
 permission_timeout = parse_timeout(os.environ.get("HOOK_PERMISSION_TIMEOUT"), 1000)
 stop_timeout = parse_timeout(os.environ.get("HOOK_STOP_TIMEOUT"), 1000)
 subagent_timeout = parse_timeout(os.environ.get("HOOK_SUBAGENTSTOP_TIMEOUT"), 1000)
+userpromptsubmit_timeout = parse_timeout(os.environ.get("HOOK_USERPROMPTSUBMIT_TIMEOUT"), 1000)
 
 def load_settings():
     if not os.path.exists(settings_file):
@@ -622,6 +633,16 @@ if os.environ.get("HOOK_ENABLE_SUBAGENTSTOP") == "true":
         "SubagentStop",
         build_hook(f"{hooks_dir}/SubagentStop.sh", subagent_timeout),
     ):
+        changed = True
+if os.environ.get("HOOK_ENABLE_USERPROMPTSUBMIT") == "true":
+    if set_hook(
+        "UserPromptSubmit",
+        build_hook(f"{hooks_dir}/UserPromptSubmit.sh", userpromptsubmit_timeout),
+    ):
+        changed = True
+    # Disable Claude Code's built-in title spinner so it doesn't fight our hook.
+    if settings.get("spinnerTipsEnabled") is not False:
+        settings["spinnerTipsEnabled"] = False
         changed = True
 
 if dry_run:

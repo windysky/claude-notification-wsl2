@@ -311,10 +311,15 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.3.0 (2026-04-16)
+Version 1.3.1 (2026-04-17)
 
 ### Changelog
 
+- **1.3.1** (2026-04-17):
+  - `setup.sh` now installs the v1.3.0 spinner helpers (`_spinner.sh`, `UserPromptSubmit.sh`) and registers the `UserPromptSubmit` hook in `~/.claude/settings.json`
+  - Installer sets `"spinnerTipsEnabled": false` at the top level of `settings.json` when the spinner hook is enabled, so Claude Code's built-in title spinner doesn't fight the hook
+  - New installs of `~/.wsl-toast/config.json` now default to `silent: true, sound_enabled: false` (matches the v1.3.0 runtime default)
+  - No runtime behavior change vs. v1.3.0; fixes a fresh-clone install gap
 - **1.3.0** (2026-04-16):
   - Silent-by-default toasts (BurntToast `-Silent`); `--sound` / `silent: false` to opt back in
   - Suppress Claude Code `idle_prompt` notifications to kill the duplicate toast ~10s after Stop

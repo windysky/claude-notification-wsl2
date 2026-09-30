@@ -335,3 +335,23 @@ dist-ssr/
 .claude/skills/
 archive/
 resume_session.txt
+
+# Local AI-tooling and work-log files (never published)
+.claude/
+.moai/
+.agents/
+.codex/
+AGENTS.md
+AGENTS.local.md
+CLAUDE.md
+CLAUDE.local.md
+.claudeignore
+.worktreeinclude
+.mcp.json
+.git_hooks/
+.github/
+PROJECT_LOG.md
+PROJECT_HANDOFF.md
+NEXT_SESSION.md
+*_REPORT.md
+.cache/smart-rsync/

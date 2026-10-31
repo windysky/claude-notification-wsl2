@@ -144,6 +144,10 @@ def truncate_message(text, max_len=300):
     caption-sized toast body shows more content)."""
     if not text:
         return ""
+    # v1.4.2: strip banner-divider runs (── ━ — - = ~ etc., 3+) that wrap
+    # ugly across two lines inside the fixed-width toast.
+    text = re.sub(r'[─━═\-–—~=]{3,}', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
     # Take up to the first two sentences so the taller toast has substance.
     sentences = re.split(r'(?<=[.!?])\s+', text)
     result = " ".join(sentences[:2])

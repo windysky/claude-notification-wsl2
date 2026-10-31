@@ -111,6 +111,10 @@ try:
     notification_type = data.get("notification_type", "")
 
     if msg:
+        # v1.4.2: strip banner-divider runs (3+ of ─ ━ — - = ~) that wrap
+        # ugly inside the fixed-width toast, then normalize whitespace.
+        msg = re.sub(r'[─━═\-–—~=]{3,}', ' ', msg)
+        msg = re.sub(r'\s+', ' ', msg).strip()
         # Truncate to first two sentences or 300 chars (v1.4.1 taller toast)
         sentences = re.split(r'(?<=[.!?])\s+', msg)
         result = " ".join(sentences[:2])

@@ -325,10 +325,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.4.1 (2026-10-31)
+Version 1.4.2 (2026-10-31)
 
 ### Changelog
 
+- **1.4.2** (2026-10-31):
+  - Hooks strip banner-divider runs (3+ of `─ ━ — - = ~`) from the last-assistant-message text before it goes into the toast, and collapse the leftover whitespace. Divider lines from agent output styles (e.g. MoAI banners) used to ride along verbatim and wrap across two lines inside the fixed-width toast.
 - **1.4.1** (2026-10-31):
   - **Taller, denser toasts** — body text now renders one size smaller (`Caption` style) with wrapping, a 3-line minimum (so the toast is always vertically roomy) and up to 8 visible lines; the title line stays at `Subtitle` size. Message truncation in `Stop.sh`/`Notification.sh` raised from the first sentence/150 chars to two sentences/300 chars, so the extra space carries real content. Uses BurntToast's advanced composition (`New-BTBinding`/`New-BTVisual`/`New-BTContent` + `Submit-BTNotification`); falls back to the previous two-line form on BurntToast versions without those cmdlets. Requires BurntToast ≥ 1.0 for the new layout.
 - **1.4.0** (2026-10-31):

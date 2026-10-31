@@ -139,40 +139,29 @@ def get_last_assistant_message(transcript_path):
     except Exception:
         return ""
 
-def truncate_message(text, max_len=600):
-    """First-paragraph extract for the v1.4.3 tall toast.
-
-    Strips banner-divider runs (v1.4.2), then accumulates leading
-    paragraphs until there is ~120 chars of substance (a bare banner
-    heading alone is too little), capped at max_len chars.
-    """
+def truncate_message(text, max_len=180):
+    """v1.4.5 banner-calibrated extract: two sentences / max_len chars, cut
+    only at sentence boundaries (the toast banner clamps at ~5 lines and
+    clips mid-character otherwise). Dash runs and markdown are stripped
+    first (v1.4.2/v1.4.4)."""
     if not text:
         return ""
-    # v1.4.2: strip banner-divider runs (── ━ — - = ~ etc., 3+) that wrap
-    # ugly across two lines inside the fixed-width toast.
-    text = re.sub(r'[─━═\-–—~=]{3,}', ' ', text)
-    # v1.4.4: the toast is plain text — strip markdown that would otherwise
-    # show up as literal symbols: links keep their label only, bold/italic
-    # markers and code backticks are dropped, headings lose their hashes.
+    text = re.sub(r'[\u2500\u2501\u2550\-\u2013\u2014~=]{3,}', ' ', text)
     text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1', text)
     text = re.sub(r'(\*\*|__)(?=\S)(.+?)(?<=\S)\1', r'\2', text)
     text = re.sub(r'(?<!\w)(\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)', r'\2', text)
     text = re.sub(r'`{1,3}([^`]*)`{1,3}', r'\1', text)
     text = re.sub(r'^\s{0,3}#{1,6}\s+', '', text, flags=re.M)
-    paras = [re.sub(r'\s+', ' ', p).strip()
-             for p in re.split(r'\n\s*\n', text)]
-    paras = [p for p in paras if p]
-    picked, total = [], 0
-    for p in paras[:3]:
-        if total and total + len(p) > max_len:
-            break
-        picked.append(p)
-        total += len(p) + 1
-        if total >= 120:
-            break
-    result = ' '.join(picked)
+    text = re.sub(r'\s+', ' ', text).strip()
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    result = " ".join(sentences[:2])
     if len(result) > max_len:
-        result = result[:max_len - 3].rstrip() + "..."
+        result = result[:max_len - 1].rstrip()
+        cut = max(result.rfind('.'), result.rfind('!'), result.rfind('?'))
+        if cut > 40:
+            result = result[:cut + 1]
+        else:
+            result = result + "..."
     return result
 
 try:

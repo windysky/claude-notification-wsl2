@@ -325,10 +325,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.4.4 (2026-10-31)
+Version 1.4.5 (2026-10-31)
 
 ### Changelog
 
+- **1.4.5** (2026-10-31):
+  - **Banner-calibrated toasts** — the Windows toast banner physically clamps around ~5 body lines on this system regardless of `hint-maxLines` (longer text clips mid-character), so the adaptive Caption/20-line experiment (1.4.3–1.4.4) was rolled back. The body is always default Body size (more characters per line than Caption at that ceiling); hooks cap the message at two sentences / 180 chars cut strictly at sentence boundaries, so a toast always ends complete. Long-form content is the TerminalOrganizer overlay's job (Phase 2).
 - **1.4.4** (2026-10-31):
   - **Adaptive toast sizing** — messages up to 120 chars render at the default Body font (familiar crisp look); longer messages switch to the smaller Caption font with the tall 20-line cap. The threshold sits where Body stops being readable at 2-3 lines.
   - **Markdown stripping** — the toast is plain text, so `**bold**` / `*italic*` / `` `code` `` / `[label](url)` / `### heading` markers now come out of the message before it reaches the toast (links keep their label only; `snake_case` and `file_name.txt` are preserved by word-boundary guards).

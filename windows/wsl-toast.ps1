@@ -533,16 +533,16 @@ function Show-ToastNotification {
                     # Blank caption-height spacer: separates the title line
                     # (project/terminal name) from the message body visually.
                     $spacer    = New-BTText -Text " " -Style Caption
-                    # Adaptive body (v1.4.4): short messages render at the
-                    # default Body size (crisp, familiar look); long messages
-                    # drop to Caption with wrap and a tall 20-line cap so the
-                    # first paragraph fits without ballooning the font area.
-                    if ($Toast.Message.Length -le 120) {
-                        $bodyText = New-BTText -Text $Toast.Message -Style Body -Wrap -MaxLines 3
-                    }
-                    else {
-                        $bodyText = New-BTText -Text $Toast.Message -Style Caption -Wrap -MaxLines 20
-                    }
+                    # v1.4.5: the Windows toast BANNER physically clamps at
+                    # ~5 lines on this system regardless of hint-maxLines, and
+                    # longer text clips mid-character. Body font shows more
+                    # characters per line than Caption at that ceiling, so the
+                    # body is always Body-sized; hooks cap the message at a
+                    # sentence boundary (2 sentences / 180 chars) so the toast
+                    # always ends complete. Long content belongs to the
+                    # TerminalOrganizer overlay (Phase 2), which has no OS
+                    # toast height limit.
+                    $bodyText = New-BTText -Text $Toast.Message -Style Body -Wrap -MaxLines 4
 
                     $bindingParams = @{ Children = @($titleText, $spacer, $bodyText) }
                     if ($Toast.AppLogo) {

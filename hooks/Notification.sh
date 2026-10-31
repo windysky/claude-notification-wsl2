@@ -120,11 +120,11 @@ try:
         msg = re.sub(r'(?<!\w)(\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)', r'\2', msg)
         msg = re.sub(r'`{1,3}([^`]*)`{1,3}', r'\1', msg)
         msg = re.sub(r'\s+', ' ', msg).strip()
-        # Truncate to first two sentences or 300 chars (v1.4.1 taller toast)
+        # v1.4.5 banner-calibrated: 2 sentences / 180 chars (banner clamps ~5 lines)
         sentences = re.split(r'(?<=[.!?])\s+', msg)
         result = " ".join(sentences[:2])
-        if len(result) > 300:
-            result = result[:297] + "..."
+        if len(result) > 180:
+            result = result[:177] + "..."
         print(result)
 except Exception:
     print("")

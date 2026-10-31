@@ -38,11 +38,26 @@ cat > /tmp/notification_hook_input.json
 cat /tmp/notification_hook_input.json >> "$LOG_FILE"
 echo "" >> "$LOG_FILE"
 
+# Session id + project dir (v1.4.0): per-project toast titles and dedup keys.
+SESSION_ID="" PROJECT_DIR=""
+if command -v python3 &>/dev/null; then
+    read -r SESSION_ID PROJECT_DIR <<< "$(python3 -c "import json; d=json.load(open('/tmp/notification_hook_input.json')); print(d.get('session_id',''), d.get('cwd',''))" 2>/dev/null)"
+fi
+PROJECT_NAME="$(basename "${PROJECT_DIR:-$PWD}")"
+
 # Any Notification event means Claude is waiting on the user, so stop the
 # working spinner immediately regardless of type.
 if [ -f "${SCRIPT_DIR}/_spinner.sh" ]; then
     # shellcheck disable=SC1091
     . "${SCRIPT_DIR}/_spinner.sh" && spinner_stop 2>/dev/null || true
+fi
+
+# Flash the Windows Terminal window that owns this session (taskbar pulse
+# until focused). permission_prompt is the main "user decision needed now"
+# signal; idle_prompt was already suppressed above.
+if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_attention.sh" && attention_flash "${PROJECT_DIR:-$PWD}" notification "${SESSION_ID}" "${NTYPE:-}" 2>/dev/null || true
 fi
 
 # Suppress idle_prompt to avoid duplicating the Stop hook toast.
@@ -109,6 +124,21 @@ PY
 
     if [ -n "$PARSED" ]; then
         MESSAGE="$PARSED"
+    fi
+fi
+
+# Per-project title (v1.4.0): concurrent sessions become distinguishable at
+# a glance (two waiting terminals no longer look like one duplicated toast).
+TITLE="${TITLE} — ${PROJECT_NAME}"
+
+# Suppress byte-identical repeats within 60s. Different messages - or the
+# same message from a different session - always go through.
+if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_attention.sh"
+    if ! toast_dedup_check "notification|${SESSION_ID}|${NTYPE:-}|${TITLE}|${MESSAGE}"; then
+        echo "[suppressed duplicate notification toast]" >> "$LOG_FILE"
+        exit 0
     fi
 fi
 

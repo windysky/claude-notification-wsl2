@@ -37,11 +37,26 @@ cat > /tmp/stop_hook_input.json
 cat /tmp/stop_hook_input.json >> "$LOG_FILE"
 echo "" >> "$LOG_FILE"
 
+# Session id + project dir (v1.4.0): per-project toast titles and dedup keys.
+SESSION_ID="" PROJECT_DIR=""
+if command -v python3 &>/dev/null; then
+    read -r SESSION_ID PROJECT_DIR <<< "$(python3 -c "import json; d=json.load(open('/tmp/stop_hook_input.json')); print(d.get('session_id',''), d.get('cwd',''))" 2>/dev/null)"
+fi
+PROJECT_NAME="$(basename "${PROJECT_DIR:-$PWD}")"
+
 # Stop the terminal-title spinner before anything else so the title clears
 # even if the toast path bails out below.
 if [ -f "${SCRIPT_DIR}/_spinner.sh" ]; then
     # shellcheck disable=SC1091
     . "${SCRIPT_DIR}/_spinner.sh" && spinner_stop 2>/dev/null || true
+fi
+
+# Flash the Windows Terminal window that owns this session (taskbar pulse
+# until focused). Runs even when the toast below is deduplicated - the
+# window still needs the user's attention.
+if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_attention.sh" && attention_flash "${PROJECT_DIR:-$PWD}" stop "${SESSION_ID}" 2>/dev/null || true
 fi
 
 # Exit if notify script doesn't exist
@@ -154,6 +169,21 @@ PY
 
     if [ -n "$PARSED" ]; then
         MESSAGE="$PARSED"
+    fi
+fi
+
+# Per-project title (v1.4.0): concurrent sessions become distinguishable at
+# a glance instead of all reading "Claude Code Ready".
+TITLE="${TITLE} — ${PROJECT_NAME}"
+
+# Suppress byte-identical repeats within 60s (double Stop fires carry the
+# same last assistant message). Different messages always go through.
+if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_attention.sh"
+    if ! toast_dedup_check "stop|${SESSION_ID}|${TITLE}|${MESSAGE}"; then
+        echo "[suppressed duplicate stop toast]" >> "$LOG_FILE"
+        exit 0
     fi
 fi
 

@@ -35,7 +35,11 @@ _spinner_find_user_tty() {
     return 1
 }
 
-# Build a classic shell-style title: "user@host: ~/path".
+# Build a classic shell-style title: "user@host: ~/path [pts/N]".
+# The trailing [pts/N] tag (v1.4.0) is a per-session unique marker: hooks use
+# it to find the exact Windows Terminal window that owns this session
+# (see _attention.sh / windows/attention.ps1). It disambiguates sessions
+# running in the same directory.
 _spinner_build_title() {
     local user="${USER:-$(whoami 2>/dev/null)}"
     local host="${HOSTNAME:-$(hostname 2>/dev/null)}"
@@ -44,6 +48,14 @@ _spinner_build_title() {
         cwd="~${cwd#$HOME}"
     fi
     printf '%s@%s: %s' "$user" "$host" "$cwd"
+}
+
+# /dev/pts/3 -> "[pts/3]" (empty string when tty is not a pts device).
+_spinner_title_tag() {
+    local tty="${1:-}"
+    if [[ "$tty" == /dev/pts/* ]]; then
+        printf ' [%s]' "${tty#/dev/}"
+    fi
 }
 
 # Convert /dev/pts/3 → dev_pts_3 for use in a filename.
@@ -86,7 +98,7 @@ spinner_start() {
 
     local prefix title
     prefix=$(_spinner_file_prefix "$tty")
-    title=$(_spinner_build_title)
+    title="$(_spinner_build_title)$(_spinner_title_tag "$tty")"
 
     echo "$tty"  >"${prefix}.tty"
     printf '%s' "$title" >"${prefix}.title"

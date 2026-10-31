@@ -20,16 +20,25 @@ Claude Code hooks enable automatic notifications at specific events during your 
 
 Hooks are scripts that Claude Code executes at specific points:
 
-- **UserPromptSubmit**: When you submit a prompt — sets a static shell-style terminal title (`user@host: ~/path`) and activates Windows Terminal indeterminate taskbar progress so you know Claude is working. Flicker-free (title is written once, pulsing is done by the terminal itself). Requires `"spinnerTipsEnabled": false` in `~/.claude/settings.json`.
-- **Stop**: When Claude finishes responding and waits for input — clears the taskbar pulse and fires a toast with the last assistant message
-- **Notification**: When Claude Code sends a notification (permission prompt, idle prompt, etc.) — clears the taskbar pulse; `idle_prompt` is suppressed to prevent duplicate toasts after Stop
+- **UserPromptSubmit**: When you submit a prompt — sets a static shell-style terminal title (`user@host: ~/path [pts/N]`) and activates Windows Terminal indeterminate taskbar progress so you know Claude is working. Flicker-free (title is written once, pulsing is done by the terminal itself). Requires `"spinnerTipsEnabled": false` in `~/.claude/settings.json`.
+- **Stop**: When Claude finishes responding and waits for input — clears the taskbar pulse, flashes the owning terminal window's taskbar icon, and fires a toast with the last assistant message (project name in the title)
+- **Notification**: When Claude Code sends a notification (permission prompt, idle prompt, etc.) — clears the taskbar pulse and flashes the owning window; `idle_prompt` is suppressed to prevent duplicate toasts after Stop
 - **PermissionRequest**: When Claude requests permission to use a tool
+
+### Attention Flash (v1.4.0)
+
+On `Stop` and `Notification`, `_attention.sh` + `windows/attention.ps1` flash the Windows Terminal window that owns the session (`FlashWindowEx`, orange taskbar pulse) until you focus that window — so with many terminals open, the taskbar tells you *which* one needs you. Matching uses tokens of the session's working-directory basename against normalized window titles, which works with ordinary path titles and with launcher-fixed titles (`HG_MyProject`) that suppress application titles. Per-project overrides: `"attention": {"hints": {"/full/path": "WindowName"}}` in `~/.wsl-toast/config.json`; disable with `"attention": {"enabled": false}`. A session hidden in an inactive tab of a title-suppressed window can't be matched — the miss is logged to `hooks.log` and never blocks the hook.
+
+### Duplicate-toast guard (v1.4.0)
+
+A toast whose (session id + title + message) is byte-identical to one sent within the last 60 seconds is suppressed (`[suppressed duplicate stop toast]` in `hooks.log`). This kills the double-`Stop` pattern — Claude Code can end one logical turn with two Stop fires carrying the same last assistant message. Different messages, or the same message from another session, always go through. Toast titles now carry the project name (`Claude Code Ready — myproject`) so two *different* waiting terminals no longer look like one duplicated toast.
 
 ### Benefits of Hook Integration
 
 - Stay informed without switching windows
 - Know at a glance when Claude is working (static session title + pulsing Windows Terminal taskbar — zero flicker, per-tty state so concurrent sessions stay independent)
 - Get notified when Claude is waiting for your input (exactly once per turn — no duplicates)
+- See **which** terminal needs you — the owning window's taskbar icon flashes until you focus it
 - See detailed messages showing what Claude actually did (like Codex CLI)
 - Silent-by-default toasts — no ding unless you ask for it
 - Receive permission request alerts

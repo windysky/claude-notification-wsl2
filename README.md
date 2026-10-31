@@ -81,11 +81,25 @@ Notifications use sensible defaults by default. Configuration is stored in `~/.w
   "language": "en",
   "silent": true,
   "sound_enabled": false,
-  "position": "top_right"
+  "position": "top_right",
+  "attention": {
+    "enabled": true,
+    "hints": {
+      "/home/you/PROJECTS/some-project": "ExactWindowTitle"
+    }
+  }
 }
 ```
 
 `silent: true` (the v1.3+ default) suppresses the Windows notification ding. Set `silent: false` if you want the ding back. `sound_enabled` is honored for backward compatibility.
+
+`attention` (v1.4.0) enables two attention channels. **flash** (default on): when Claude finishes or needs a decision, the Windows Terminal window owning that session flashes its taskbar icon until you focus it. Window matching uses the tokens of the session's working-directory basename against window titles, which works with both ordinary path titles and launcher-fixed titles (`HG_MyProject`). **signal** (default on): each event also drops one JSON file into `%LOCALAPPDATA%\wsl-toast\attention\` (`att-<epochms>-<rand>.json`, read-and-delete, self-pruned after 5 min) for a resident consumer such as TerminalOrganizer to render a stronger visual (border overlay):
+
+```json
+{"version": 1, "event": "stop", "notification_type": null, "session_id": "...", "cwd": "/home/you/project", "needle": "project name tokens", "timestamp": "2026-10-31T09:54:51-05:00"}
+```
+
+`hints` is optional — map a project directory to an exact window title when the heuristic misses.
 
 ### Claude Code Hooks Integration
 
@@ -311,10 +325,18 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.3.2 (2026-04-17)
+Version 1.4.0 (2026-10-31)
 
 ### Changelog
 
+- **1.4.0** (2026-10-31):
+  - **Taskbar attention flash** — when Claude finishes or needs a decision, the Windows Terminal window owning that session flashes its taskbar icon (orange, via `FlashWindowEx`) until you focus that window. With many terminals open you can see *which* one is calling you. New `windows/attention.ps1` + `hooks/_attention.sh`; wired into `Stop.sh` and `Notification.sh`. Disabled with `"attention": {"enabled": false}` in `~/.wsl-toast/config.json`; per-project window-name overrides via `"attention": {"hints": {"/full/path": "WindowName"}}` when the heuristic title match misses.
+  - **Attention signal channel** — the same event also writes `%LOCALAPPDATA%\wsl-toast\attention\att-*.json` (versioned contract above) for a resident consumer such as TerminalOrganizer (Phase 2 border overlay). Per-channel toggles: `"attention": {"flash": true, "signal": true}`.
+  - Window matching works in both title regimes: ordinary titles (`user@host: ~/path` — the path tokens appear in the window title) and launcher-fixed titles (`HG_MyProject`, i.e. profiles with `suppressApplicationTitle`) — tokens of the session's working-directory basename must all appear in the window title.
+  - Known limitation: a session hidden in an *inactive* tab of a title-suppressed window can't be found (the window title only shows the active tab); the miss is logged, never blocks the hook.
+  - **Duplicate-toast guard** — a byte-identical (session + title + message) toast within 60s is suppressed. Kills the "same message twice" double-Stop pattern (Claude Code can fire Stop twice for one logical turn). Different messages always go through.
+  - **Project name in toast titles** — titles now read `Claude Code Ready — myproject`, so two waiting terminals no longer look like one duplicated toast.
+  - Tab titles written by `_spinner.sh` now carry a `[pts/N]` suffix identifying the session's tty (informational; also usable for future window matching).
 - **1.3.2** (2026-04-17):
   - `scripts/notify.sh` now passes `-ExecutionPolicy Bypass` when invoking `wsl-toast.ps1`. WSL paths (`\\wsl.localhost\...`) are treated as remote by Windows PowerShell; the default `RemoteSigned` policy blocks unsigned remote scripts, so toasts silently failed on fresh WSL installs. Fixes the "spinner works but no toast" case.
 - **1.3.1** (2026-04-17):

@@ -3,7 +3,7 @@
 # Installs Windows toast notification system for Claude Code CLI on WSL2
 #
 # Author: Claude Code TDD Implementation
-# Version: 1.3.2
+# Version: 1.4.0
 # License: MIT
 
 set -euo pipefail
@@ -323,7 +323,12 @@ create_default_config() {
   "language": "en",
   "silent": true,
   "sound_enabled": false,
-  "position": "top_right"
+  "position": "top_right",
+  "attention": {
+    "enabled": true,
+    "flash": true,
+    "signal": true
+  }
 }
 EOF
 
@@ -411,8 +416,8 @@ install_hook_scripts() {
     mkdir -p "${target_dir}/templates"
     mkdir -p "${target_dir}/windows"
 
-    # Copy hook scripts (including v1.3.0 spinner helpers)
-    local hooks=("Notification.sh" "Stop.sh" "PermissionRequest.sh" "UserPromptSubmit.sh" "_spinner.sh")
+    # Copy hook scripts (including v1.3.0 spinner and v1.4.0 attention helpers)
+    local hooks=("Notification.sh" "Stop.sh" "PermissionRequest.sh" "UserPromptSubmit.sh" "_spinner.sh" "_attention.sh")
     for hook in "${hooks[@]}"; do
         if [ -f "${source_dir}/${hook}" ]; then
             cp "${source_dir}/${hook}" "${target_dir}/${hook}"

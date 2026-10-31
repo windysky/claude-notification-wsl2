@@ -325,10 +325,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.4.2 (2026-10-31)
+Version 1.4.3 (2026-10-31)
 
 ### Changelog
 
+- **1.4.3** (2026-10-31):
+  - Toast body cap raised to 20 visible lines and the Stop-hook message extract changed from "first two sentences / 300 chars" to **first paragraph(s) / 600 chars** — leading paragraphs accumulate until ~120 chars of substance (a bare banner heading alone won't stand), dividers already stripped (1.4.2). Notification-hook toasts keep the short 300-char form (their payload is a one-line system message).
 - **1.4.2** (2026-10-31):
   - Hooks strip banner-divider runs (3+ of `─ ━ — - = ~`) from the last-assistant-message text before it goes into the toast, and collapse the leftover whitespace. Divider lines from agent output styles (e.g. MoAI banners) used to ride along verbatim and wrap across two lines inside the fixed-width toast.
 - **1.4.1** (2026-10-31):

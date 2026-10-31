@@ -139,18 +139,30 @@ def get_last_assistant_message(transcript_path):
     except Exception:
         return ""
 
-def truncate_message(text, max_len=300):
-    """Truncate to first two sentences or max_len chars (v1.4.1: taller
-    caption-sized toast body shows more content)."""
+def truncate_message(text, max_len=600):
+    """First-paragraph extract for the v1.4.3 tall toast.
+
+    Strips banner-divider runs (v1.4.2), then accumulates leading
+    paragraphs until there is ~120 chars of substance (a bare banner
+    heading alone is too little), capped at max_len chars.
+    """
     if not text:
         return ""
     # v1.4.2: strip banner-divider runs (── ━ — - = ~ etc., 3+) that wrap
     # ugly across two lines inside the fixed-width toast.
     text = re.sub(r'[─━═\-–—~=]{3,}', ' ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    # Take up to the first two sentences so the taller toast has substance.
-    sentences = re.split(r'(?<=[.!?])\s+', text)
-    result = " ".join(sentences[:2])
+    paras = [re.sub(r'\s+', ' ', p).strip()
+             for p in re.split(r'\n\s*\n', text)]
+    paras = [p for p in paras if p]
+    picked, total = [], 0
+    for p in paras[:3]:
+        if total and total + len(p) > max_len:
+            break
+        picked.append(p)
+        total += len(p) + 1
+        if total >= 120:
+            break
+    result = ' '.join(picked)
     if len(result) > max_len:
         result = result[:max_len - 3].rstrip() + "..."
     return result

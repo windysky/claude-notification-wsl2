@@ -517,9 +517,9 @@ function Show-ToastNotification {
             # line + caption-sized wrapped body. Caption is one size smaller
             # than the default body text. No MinLines floor: the toast grows
             # vertically with the actual message length (dynamic), capped at
-            # MaxLines 12 (~300 Korean chars at ~30 chars/line). Falls back
-            # to the plain two-line -Text form when the advanced cmdlets are
-            # unavailable.
+            # MaxLines 20 (v1.4.3 — first-paragraph scale, ~600 Korean chars
+            # at ~30 chars/line). Falls back to the plain two-line -Text form
+            # when the advanced cmdlets are unavailable.
             $advancedAvailable =
                 [bool](Get-Command -Name New-BTBinding -ErrorAction SilentlyContinue) -and
                 [bool](Get-Command -Name New-BTVisual -ErrorAction SilentlyContinue) -and
@@ -533,7 +533,7 @@ function Show-ToastNotification {
                     # Blank caption-height spacer: separates the title line
                     # (project/terminal name) from the message body visually.
                     $spacer    = New-BTText -Text " " -Style Caption
-                    $bodyText  = New-BTText -Text $Toast.Message -Style Caption -Wrap -MaxLines 12
+                    $bodyText  = New-BTText -Text $Toast.Message -Style Caption -Wrap -MaxLines 20
 
                     $bindingParams = @{ Children = @($titleText, $spacer, $bodyText) }
                     if ($Toast.AppLogo) {

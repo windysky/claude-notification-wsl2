@@ -111,11 +111,11 @@ try:
     notification_type = data.get("notification_type", "")
 
     if msg:
-        # Truncate to first sentence or 150 chars
-        sentences = re.split(r'(?<=[.!?])\s+', msg, maxsplit=1)
-        result = sentences[0]
-        if len(result) > 150:
-            result = result[:147] + "..."
+        # Truncate to first two sentences or 300 chars (v1.4.1 taller toast)
+        sentences = re.split(r'(?<=[.!?])\s+', msg)
+        result = " ".join(sentences[:2])
+        if len(result) > 300:
+            result = result[:297] + "..."
         print(result)
 except Exception:
     print("")

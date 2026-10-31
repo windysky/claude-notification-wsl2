@@ -139,13 +139,14 @@ def get_last_assistant_message(transcript_path):
     except Exception:
         return ""
 
-def truncate_message(text, max_len=150):
-    """Truncate to first sentence or max_len chars."""
+def truncate_message(text, max_len=300):
+    """Truncate to first two sentences or max_len chars (v1.4.1: taller
+    caption-sized toast body shows more content)."""
     if not text:
         return ""
-    # Try to get first sentence
-    sentences = re.split(r'(?<=[.!?])\s+', text, maxsplit=1)
-    result = sentences[0]
+    # Take up to the first two sentences so the taller toast has substance.
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    result = " ".join(sentences[:2])
     if len(result) > max_len:
         result = result[:max_len - 3].rstrip() + "..."
     return result

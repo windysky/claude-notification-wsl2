@@ -325,10 +325,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.4.0 (2026-10-31)
+Version 1.4.1 (2026-10-31)
 
 ### Changelog
 
+- **1.4.1** (2026-10-31):
+  - **Taller, denser toasts** — body text now renders one size smaller (`Caption` style) with wrapping, a 3-line minimum (so the toast is always vertically roomy) and up to 8 visible lines; the title line stays at `Subtitle` size. Message truncation in `Stop.sh`/`Notification.sh` raised from the first sentence/150 chars to two sentences/300 chars, so the extra space carries real content. Uses BurntToast's advanced composition (`New-BTBinding`/`New-BTVisual`/`New-BTContent` + `Submit-BTNotification`); falls back to the previous two-line form on BurntToast versions without those cmdlets. Requires BurntToast ≥ 1.0 for the new layout.
 - **1.4.0** (2026-10-31):
   - **Taskbar attention flash** — when Claude finishes or needs a decision, the Windows Terminal window owning that session flashes its taskbar icon (orange, via `FlashWindowEx`) until you focus that window. With many terminals open you can see *which* one is calling you. New `windows/attention.ps1` + `hooks/_attention.sh`; wired into `Stop.sh` and `Notification.sh`. Disabled with `"attention": {"enabled": false}` in `~/.wsl-toast/config.json`; per-project window-name overrides via `"attention": {"hints": {"/full/path": "WindowName"}}` when the heuristic title match misses.
   - **Attention signal channel** — the same event also writes `%LOCALAPPDATA%\wsl-toast\attention\att-*.json` (versioned contract above) for a resident consumer such as TerminalOrganizer (Phase 2 border overlay). Per-channel toggles: `"attention": {"flash": true, "signal": true}`.

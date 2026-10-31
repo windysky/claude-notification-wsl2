@@ -512,33 +512,79 @@ function Show-ToastNotification {
             $cmd = Get-Command -Name New-BurntToastNotification -ErrorAction Stop
             $paramNames = $cmd.Parameters.Keys
             $burntToastDuration = Get-BurntToastDuration -Duration $Toast.Duration
-            $btParams = @{}
 
-            if ($paramNames -contains 'Text') {
-                $btParams.Text = @($Toast.Title, $Toast.Message)
-            }
-            else {
-                if ($paramNames -contains 'Title') { $btParams.Title = $Toast.Title }
-                if ($paramNames -contains 'Body') { $btParams.Body = $Toast.Message }
+            # v1.4.1 detailed layout (BurntToast >= 1.0): subtitle-sized title
+            # line + caption-sized wrapped body. Caption is one size smaller
+            # than the default body text. No MinLines floor: the toast grows
+            # vertically with the actual message length (dynamic), capped at
+            # MaxLines 12 (~300 Korean chars at ~30 chars/line). Falls back
+            # to the plain two-line -Text form when the advanced cmdlets are
+            # unavailable.
+            $advancedAvailable =
+                [bool](Get-Command -Name New-BTBinding -ErrorAction SilentlyContinue) -and
+                [bool](Get-Command -Name New-BTVisual -ErrorAction SilentlyContinue) -and
+                [bool](Get-Command -Name New-BTContent -ErrorAction SilentlyContinue) -and
+                [bool](Get-Command -Name Submit-BTNotification -ErrorAction SilentlyContinue)
+
+            $sentViaAdvanced = $false
+            if ($advancedAvailable) {
+                try {
+                    $titleText = New-BTText -Text $Toast.Title -Style Subtitle -MaxLines 1
+                    # Blank caption-height spacer: separates the title line
+                    # (project/terminal name) from the message body visually.
+                    $spacer    = New-BTText -Text " " -Style Caption
+                    $bodyText  = New-BTText -Text $Toast.Message -Style Caption -Wrap -MaxLines 12
+
+                    $bindingParams = @{ Children = @($titleText, $spacer, $bodyText) }
+                    if ($Toast.AppLogo) {
+                        $bindingParams.AppLogoOverride = New-BTImage -Source $Toast.AppLogo
+                    }
+
+                    $contentParams = @{ Visual = (New-BTVisual -BindingGeneric (New-BTBinding @bindingParams)) }
+                    if ($script:IsSilent) {
+                        $contentParams.Audio = New-BTAudio -Silent
+                    }
+                    if ($burntToastDuration) {
+                        $contentParams.Duration = $burntToastDuration
+                    }
+
+                    Submit-BTNotification -Content (New-BTContent @contentParams) -ErrorAction Stop
+                    $sentViaAdvanced = $true
+                }
+                catch {
+                    # Fall through to the simple form below.
+                }
             }
 
-            if ($Toast.AppLogo -and ($paramNames -contains 'AppLogo')) {
-                $btParams.AppLogo = $Toast.AppLogo
-            }
+            if (-not $sentViaAdvanced) {
+                $btParams = @{}
 
-            if ($burntToastDuration -and ($paramNames -contains 'Duration')) {
-                $btParams.Duration = $burntToastDuration
-            }
+                if ($paramNames -contains 'Text') {
+                    $btParams.Text = @($Toast.Title, $Toast.Message)
+                }
+                else {
+                    if ($paramNames -contains 'Title') { $btParams.Title = $Toast.Title }
+                    if ($paramNames -contains 'Body') { $btParams.Body = $Toast.Message }
+                }
 
-            if ($script:IsSilent -and ($paramNames -contains 'Silent')) {
-                $btParams.Silent = $true
-            }
+                if ($Toast.AppLogo -and ($paramNames -contains 'AppLogo')) {
+                    $btParams.AppLogo = $Toast.AppLogo
+                }
 
-            $null = New-BurntToastNotification @btParams
+                if ($burntToastDuration -and ($paramNames -contains 'Duration')) {
+                    $btParams.Duration = $burntToastDuration
+                }
+
+                if ($script:IsSilent -and ($paramNames -contains 'Silent')) {
+                    $btParams.Silent = $true
+                }
+
+                $null = New-BurntToastNotification @btParams
+            }
 
             $result.Success = $true
-            $result.Method = 'BurntToast'
-            $result.Message = 'Notification displayed using BurntToast'
+            $result.Method = if ($sentViaAdvanced) { 'BurntToast-Detailed' } else { 'BurntToast' }
+            $result.Message = if ($sentViaAdvanced) { 'Notification displayed using BurntToast (detailed layout)' } else { 'Notification displayed using BurntToast' }
         }
         else {
             # Fallback: Use Windows Forms Balloon Tip

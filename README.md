@@ -325,10 +325,13 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.4.3 (2026-10-31)
+Version 1.4.4 (2026-10-31)
 
 ### Changelog
 
+- **1.4.4** (2026-10-31):
+  - **Adaptive toast sizing** — messages up to 120 chars render at the default Body font (familiar crisp look); longer messages switch to the smaller Caption font with the tall 20-line cap. The threshold sits where Body stops being readable at 2-3 lines.
+  - **Markdown stripping** — the toast is plain text, so `**bold**` / `*italic*` / `` `code` `` / `[label](url)` / `### heading` markers now come out of the message before it reaches the toast (links keep their label only; `snake_case` and `file_name.txt` are preserved by word-boundary guards).
 - **1.4.3** (2026-10-31):
   - Toast body cap raised to 20 visible lines and the Stop-hook message extract changed from "first two sentences / 300 chars" to **first paragraph(s) / 600 chars** — leading paragraphs accumulate until ~120 chars of substance (a bare banner heading alone won't stand), dividers already stripped (1.4.2). Notification-hook toasts keep the short 300-char form (their payload is a one-line system message).
 - **1.4.2** (2026-10-31):

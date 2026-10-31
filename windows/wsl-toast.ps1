@@ -533,7 +533,16 @@ function Show-ToastNotification {
                     # Blank caption-height spacer: separates the title line
                     # (project/terminal name) from the message body visually.
                     $spacer    = New-BTText -Text " " -Style Caption
-                    $bodyText  = New-BTText -Text $Toast.Message -Style Caption -Wrap -MaxLines 20
+                    # Adaptive body (v1.4.4): short messages render at the
+                    # default Body size (crisp, familiar look); long messages
+                    # drop to Caption with wrap and a tall 20-line cap so the
+                    # first paragraph fits without ballooning the font area.
+                    if ($Toast.Message.Length -le 120) {
+                        $bodyText = New-BTText -Text $Toast.Message -Style Body -Wrap -MaxLines 3
+                    }
+                    else {
+                        $bodyText = New-BTText -Text $Toast.Message -Style Caption -Wrap -MaxLines 20
+                    }
 
                     $bindingParams = @{ Children = @($titleText, $spacer, $bodyText) }
                     if ($Toast.AppLogo) {

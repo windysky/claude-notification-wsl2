@@ -114,6 +114,11 @@ try:
         # v1.4.2: strip banner-divider runs (3+ of ─ ━ — - = ~) that wrap
         # ugly inside the fixed-width toast, then normalize whitespace.
         msg = re.sub(r'[─━═\-–—~=]{3,}', ' ', msg)
+        # v1.4.4: plain-text toast — strip markdown emphasis/link markers.
+        msg = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1', msg)
+        msg = re.sub(r'(\*\*|__)(?=\S)(.+?)(?<=\S)\1', r'\2', msg)
+        msg = re.sub(r'(?<!\w)(\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)', r'\2', msg)
+        msg = re.sub(r'`{1,3}([^`]*)`{1,3}', r'\1', msg)
         msg = re.sub(r'\s+', ' ', msg).strip()
         # Truncate to first two sentences or 300 chars (v1.4.1 taller toast)
         sentences = re.split(r'(?<=[.!?])\s+', msg)

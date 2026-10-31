@@ -151,6 +151,14 @@ def truncate_message(text, max_len=600):
     # v1.4.2: strip banner-divider runs (── ━ — - = ~ etc., 3+) that wrap
     # ugly across two lines inside the fixed-width toast.
     text = re.sub(r'[─━═\-–—~=]{3,}', ' ', text)
+    # v1.4.4: the toast is plain text — strip markdown that would otherwise
+    # show up as literal symbols: links keep their label only, bold/italic
+    # markers and code backticks are dropped, headings lose their hashes.
+    text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1', text)
+    text = re.sub(r'(\*\*|__)(?=\S)(.+?)(?<=\S)\1', r'\2', text)
+    text = re.sub(r'(?<!\w)(\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)', r'\2', text)
+    text = re.sub(r'`{1,3}([^`]*)`{1,3}', r'\1', text)
+    text = re.sub(r'^\s{0,3}#{1,6}\s+', '', text, flags=re.M)
     paras = [re.sub(r'\s+', ' ', p).strip()
              for p in re.split(r'\n\s*\n', text)]
     paras = [p for p in paras if p]

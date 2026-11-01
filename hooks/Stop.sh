@@ -51,19 +51,6 @@ if [ -f "${SCRIPT_DIR}/_spinner.sh" ]; then
     . "${SCRIPT_DIR}/_spinner.sh" && spinner_stop 2>/dev/null || true
 fi
 
-# Flash the Windows Terminal window that owns this session (taskbar pulse
-# until focused). Runs even when the toast below is deduplicated - the
-# window still needs the user's attention.
-if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
-    # shellcheck disable=SC1091
-    . "${SCRIPT_DIR}/_attention.sh" && attention_flash "${PROJECT_DIR:-$PWD}" stop "${SESSION_ID}" 2>/dev/null || true
-fi
-
-# Exit if notify script doesn't exist
-if [ ! -f "$NOTIFY_SCRIPT" ]; then
-    exit 0
-fi
-
 # Load language from config
 LANGUAGE="en"
 if [ -f "$CONFIG_FILE" ]; then
@@ -139,22 +126,44 @@ def get_last_assistant_message(transcript_path):
     except Exception:
         return ""
 
-def truncate_message(text, max_len=180):
-    """v1.4.5 banner-calibrated extract: two sentences / max_len chars, cut
-    only at sentence boundaries (the toast banner clamps at ~5 lines and
-    clips mid-character otherwise). Dash runs and markdown are stripped
-    first (v1.4.2/v1.4.4)."""
-    if not text:
-        return ""
+def _clean(text):
+    """Shared markdown/dash stripping (v1.4.2/v1.4.4)."""
     text = re.sub(r'[\u2500\u2501\u2550\-\u2013\u2014~=]{3,}', ' ', text)
     text = re.sub(r'\[([^\]]+)\]\(([^)]+)\)', r'\1', text)
     text = re.sub(r'(\*\*|__)(?=\S)(.+?)(?<=\S)\1', r'\2', text)
     text = re.sub(r'(?<!\w)(\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)', r'\2', text)
     text = re.sub(r'`{1,3}([^`]*)`{1,3}', r'\1', text)
     text = re.sub(r'^\s{0,3}#{1,6}\s+', '', text, flags=re.M)
-    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+def truncate_message(text, max_len=180):
+    """v1.4.5 banner-calibrated extract: two sentences / max_len chars, cut
+    only at sentence boundaries (the toast banner clamps at ~5 lines and
+    clips mid-character otherwise)."""
+    if not text:
+        return ""
+    text = re.sub(r'\s+', ' ', _clean(text)).strip()
     sentences = re.split(r'(?<=[.!?])\s+', text)
     result = " ".join(sentences[:2])
+    if len(result) > max_len:
+        result = result[:max_len - 1].rstrip()
+        cut = max(result.rfind('.'), result.rfind('!'), result.rfind('?'))
+        if cut > 40:
+            result = result[:cut + 1]
+        else:
+            result = result + "..."
+    return result
+
+def first_paragraph(text, max_len=600):
+    """v1.5.0 signal extract for the organizer overlay: the first paragraph,
+    capped at max_len chars with a sentence-boundary cut. The overlay has no
+    OS toast height limit, so long-form reading lands there (PROJECT_HANDOFF
+    \u00a74 auto-handoff)."""
+    if not text:
+        return ""
+    text = _clean(text)
+    paragraphs = [p.strip() for p in re.split(r'\n\s*\n', text) if p.strip()]
+    result = re.sub(r'\s+', ' ', paragraphs[0] if paragraphs else text).strip()
     if len(result) > max_len:
         result = result[:max_len - 1].rstrip()
         cut = max(result.rfind('.'), result.rfind('!'), result.rfind('?'))
@@ -175,15 +184,37 @@ try:
     msg = get_last_assistant_message(transcript_path)
 
     if msg:
+        # Line 1 = toast extract (short), line 2 = signal extract (first
+        # paragraph, ~600 chars) for the organizer overlay (v1.5.0).
         print(truncate_message(msg))
+        print(first_paragraph(msg))
 except Exception as e:
     print("", file=sys.stderr)
 PY
 )
 
+    # Both extracts are single-line (whitespace collapsed upstream).
     if [ -n "$PARSED" ]; then
-        MESSAGE="$PARSED"
+        MESSAGE="$(sed -n '1p' <<<"$PARSED")"
+        SIGNAL_MSG="$(sed -n '2p' <<<"$PARSED")"
     fi
+fi
+
+# Flash the window + write the attention signal (v1.5.0): the signal carries
+# the first paragraph so the organizer overlay can render it. Runs after the
+# extracts so the message rides along; runs even when the toast below is
+# deduplicated or suppressed - the window still needs the user's attention.
+if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_attention.sh" && attention_flash "${PROJECT_DIR:-$PWD}" stop "${SESSION_ID}" "" "${SIGNAL_MSG:-}" 2>/dev/null || true
+fi
+
+# Auto-handoff (v1.5.0, PROJECT_HANDOFF.md §4): while the organizer
+# heartbeat is fresh the border overlay owns attention - skip the toast (the
+# signal above was still written). Stale heartbeat falls through to toast.
+if _attention_organizer_alive 2>/dev/null; then
+    echo "[organizer mode] toast skipped (heartbeat fresh)" >> "$LOG_FILE"
+    exit 0
 fi
 
 # Per-project title (v1.4.0): concurrent sessions become distinguishable at
@@ -199,6 +230,11 @@ if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
         echo "[suppressed duplicate stop toast]" >> "$LOG_FILE"
         exit 0
     fi
+fi
+
+# Exit if notify script doesn't exist (attention already fired above)
+if [ ! -f "$NOTIFY_SCRIPT" ]; then
+    exit 0
 fi
 
 # Send notification

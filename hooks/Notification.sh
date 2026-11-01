@@ -52,23 +52,32 @@ if [ -f "${SCRIPT_DIR}/_spinner.sh" ]; then
     . "${SCRIPT_DIR}/_spinner.sh" && spinner_stop 2>/dev/null || true
 fi
 
+# Extract notification_type + payload message BEFORE attention_flash (v1.5.0)
+# so the signal carries both. This also fixes the old ordering bug where
+# attention_flash received an empty ntype (NTYPE was computed after the call).
+if command -v python3 &>/dev/null; then
+    read -r NTYPE NTMSG <<< "$(python3 -c "
+import json
+d = json.load(open('/tmp/notification_hook_input.json'))
+msg = (d.get('message') or '').replace(chr(10), ' ')[:600]
+print(d.get('notification_type', ''), msg)
+" 2>/dev/null)"
+fi
+
 # Flash the Windows Terminal window that owns this session (taskbar pulse
 # until focused). permission_prompt is the main "user decision needed now"
 # signal; idle_prompt was already suppressed above.
 if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
     # shellcheck disable=SC1091
-    . "${SCRIPT_DIR}/_attention.sh" && attention_flash "${PROJECT_DIR:-$PWD}" notification "${SESSION_ID}" "${NTYPE:-}" 2>/dev/null || true
+    . "${SCRIPT_DIR}/_attention.sh" && attention_flash "${PROJECT_DIR:-$PWD}" notification "${SESSION_ID}" "${NTYPE:-}" "${NTMSG:-}" 2>/dev/null || true
 fi
 
 # Suppress idle_prompt to avoid duplicating the Stop hook toast.
 # The Stop hook already announces completion with the last assistant message;
 # idle_prompt fires ~10s later with the same semantic meaning ("waiting for input").
-if command -v python3 &>/dev/null; then
-    NTYPE=$(python3 -c "import json; print(json.load(open('/tmp/notification_hook_input.json')).get('notification_type',''))" 2>/dev/null || echo "")
-    if [ "$NTYPE" = "idle_prompt" ]; then
-        echo "[suppressed idle_prompt duplicate]" >> "$LOG_FILE"
-        exit 0
-    fi
+if [ "${NTYPE:-}" = "idle_prompt" ]; then
+    echo "[suppressed idle_prompt duplicate]" >> "$LOG_FILE"
+    exit 0
 fi
 
 # Exit if notify script doesn't exist
@@ -139,6 +148,19 @@ fi
 # Per-project title (v1.4.0): concurrent sessions become distinguishable at
 # a glance (two waiting terminals no longer look like one duplicated toast).
 TITLE="${TITLE} — ${PROJECT_NAME}"
+
+# Auto-handoff (v1.5.0, PROJECT_HANDOFF.md §4): while the organizer
+# heartbeat is fresh the border overlay owns attention - skip the toast (the
+# signal was still written above). Checked before dedup so organizer-mode
+# turns do not pollute the dedup state.
+if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_attention.sh"
+    if _attention_organizer_alive 2>/dev/null; then
+        echo "[organizer mode] toast skipped (heartbeat fresh)" >> "$LOG_FILE"
+        exit 0
+    fi
+fi
 
 # Suppress byte-identical repeats within 60s. Different messages - or the
 # same message from a different session - always go through.

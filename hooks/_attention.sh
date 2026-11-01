@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # _attention.sh - Attention signal helpers for wsl-toast hooks.
 #
-# attention_flash <project_dir> [event] [session_id] [notification_type]
+# attention_flash <project_dir> [event] [session_id] [notification_type] [message]
 #   Two attention channels (v1.4.x), each config-gated under "attention":
 #   - "flash"  (default true): flash the Windows Terminal window that owns the
 #     session (taskbar pulses orange until the window is focused). Matching
@@ -12,6 +12,13 @@
 #     TerminalOrganizer (Phase 2 border overlay). One file per event, named
 #     att-<epochms>-<rand>.json - concurrent sessions never race on one file.
 #     The consumer reads-and-deletes; files older than 5 minutes self-prune.
+#     v1.5.0: an optional <message> (first paragraph of the reply, ~600 chars)
+#     rides along in the JSON "message" field so the overlay can render it.
+#   Auto-handoff (v1.5.0, PROJECT_HANDOFF.md §4): when the organizer's
+#   heartbeat file organizer.json is fresh (<15 s), hooks run in "organizer
+#   mode" - attention_flash skips the FlashWindowEx channel (signal only) and
+#   callers skip their toast. A stale or missing heartbeat keeps the
+#   standalone toast+flash behavior.
 #   Per-project window-name override:
 #     "attention": { "enabled": true,
 #                    "hints": { "/full/project/dir": "ExactWindowTitle" } }
@@ -66,10 +73,38 @@ _attention_win_user() {
     echo "$u"
 }
 
-# _attention_write_signal <project_dir> <event> <session_id> <ntype> <needle>
+# _attention_organizer_alive -> exit 0 when the TerminalOrganizer heartbeat
+# is fresh (< ATTENTION_ORGANIZER_MAX_AGE seconds old), non-zero otherwise
+# (file missing, unparsable, or stale). While fresh, hooks run in "organizer
+# mode": signal only - toast and FlashWindowEx are skipped because the border
+# overlay owns the user's attention (PROJECT_HANDOFF.md §4 auto-handoff).
+# Stale/missing heartbeat = the standalone toast+flash fallback.
+ATTENTION_ORGANIZER_MAX_AGE=15
+_attention_organizer_alive() {
+    local user hb
+    user=$(_attention_win_user) || return 1
+    hb="/mnt/c/Users/${user}/AppData/Local/wsl-toast/attention/organizer.json"
+    [ -f "$hb" ] || return 1
+    python3 - "$hb" "$ATTENTION_ORGANIZER_MAX_AGE" <<'PY' 2>/dev/null
+import datetime, json, sys
+
+path, max_age = sys.argv[1], float(sys.argv[2])
+try:
+    ts = json.load(open(path, encoding="utf-8-sig")).get("timestamp", "")
+    t = datetime.datetime.fromisoformat(ts)
+    if t.tzinfo is None:  # naive stamp: organizer wrote local time
+        t = t.replace(tzinfo=datetime.datetime.now().astimezone().tzinfo)
+    age = (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds()
+    sys.exit(0 if 0 <= age < max_age else 1)
+except Exception:
+    sys.exit(1)
+PY
+}
+
+# _attention_write_signal <project_dir> <event> <session_id> <ntype> <needle> [message]
 # Returns 0 only when a non-empty signal file actually landed on disk.
 _attention_write_signal() {
-    local project_dir="$1" event="$2" session_id="$3" ntype="$4" needle="$5"
+    local project_dir="$1" event="$2" session_id="$3" ntype="$4" needle="$5" message="${6:-}"
     local user sig_dir
     user=$(_attention_win_user) || return 1
     sig_dir="/mnt/c/Users/${user}/AppData/Local/wsl-toast/attention"
@@ -78,7 +113,7 @@ _attention_write_signal() {
     local fname
     fname="att-$(date +%s%3N 2>/dev/null || date +%s)-$RANDOM.json"
     ATT_DIR="$project_dir" ATT_EVENT="$event" ATT_SESSION="$session_id" \
-        ATT_NTYPE="$ntype" ATT_NEEDLE="$needle" \
+        ATT_NTYPE="$ntype" ATT_NEEDLE="$needle" ATT_MESSAGE="$message" \
         python3 - > "${sig_dir}/${fname}" <<'PY' 2>/dev/null || true
 import json, os, datetime
 print(json.dumps({
@@ -88,6 +123,7 @@ print(json.dumps({
     "session_id": os.environ.get("ATT_SESSION", ""),
     "cwd": os.environ.get("ATT_DIR", ""),
     "needle": os.environ.get("ATT_NEEDLE", ""),
+    "message": os.environ.get("ATT_MESSAGE") or None,
     "timestamp": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
 }))
 PY
@@ -100,12 +136,13 @@ PY
     return 0
 }
 
-# attention_flash <project_dir> [event] [session_id] [notification_type]
+# attention_flash <project_dir> [event] [session_id] [notification_type] [message]
 attention_flash() {
     local project_dir="${1:-$PWD}"
     local event="${2:-stop}"
     local session_id="${3:-}"
     local ntype="${4:-}"
+    local message="${5:-}"
     local log_file="${ATTENTION_DIR}/logs/hooks.log"
     local config_file="${ATTENTION_DIR}/config.json"
 
@@ -140,9 +177,13 @@ PY
     [ -z "$needle" ] && return 0
 
     # Channel 1: taskbar flash via attention.ps1. Bounded by timeout so a
-    # hung powershell.exe can never stall the hook.
+    # hung powershell.exe can never stall the hook. Skipped while the
+    # organizer heartbeat is fresh - the border overlay owns attention then
+    # (v1.5.0 auto-handoff, PROJECT_HANDOFF.md §4).
     local result=""
-    if [ "$flash" = "True" ]; then
+    if _attention_organizer_alive; then
+        result="flash skipped (organizer mode)"
+    elif [ "$flash" = "True" ]; then
         local windows_dir ps_path powershell_exe
         windows_dir=$(_attention_find_windows_dir) && \
         powershell_exe="$(command -v powershell.exe 2>/dev/null)" && \
@@ -154,7 +195,7 @@ PY
 
     # Channel 2: signal file for a resident consumer (TerminalOrganizer).
     if [ "$signal" = "True" ]; then
-        if _attention_write_signal "$project_dir" "$event" "$session_id" "$ntype" "$needle"; then
+        if _attention_write_signal "$project_dir" "$event" "$session_id" "$ntype" "$needle" "$message"; then
             result="${result:+$result · }signal written"
         else
             result="${result:+$result · }signal FAILED"

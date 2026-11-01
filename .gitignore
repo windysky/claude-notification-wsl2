@@ -355,3 +355,6 @@ PROJECT_HANDOFF.md
 NEXT_SESSION.md
 *_REPORT.md
 .cache/smart-rsync/
+
+# No-paste resume prompt (machine-local, per-session)
+/NEXT_SESSION.md

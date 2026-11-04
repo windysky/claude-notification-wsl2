@@ -103,6 +103,25 @@ except Exception:
 PY
 }
 
+# _attention_kind <event> <notification_type> -> the signal "kind" (v1.5.2), or
+# nothing. The TerminalOrganizer overlay reads it as HOW LONG to blink:
+#   ask  - until the window is focused (the user must act: permission, a dialog)
+#   info - a short visible-seconds cap, then the organizer's after-cap state
+# Claude Code's idle_prompt ("Claude is waiting for your input") fires about
+# 60 s after EVERY finished turn whatever the reply said; the Stop signal has
+# already marked the window, so it must not re-arm an until-focus blink.
+# Stop events and unknown/empty types stay absent (the organizer's
+# event-policy default - unchanged behavior).
+_attention_kind() {
+    local event="$1" ntype="$2"
+    [ "$event" = "notification" ] || return 0
+    case "$ntype" in
+        permission_prompt|elicitation_dialog) echo "ask" ;;
+        idle_prompt|auth_success) echo "info" ;;
+        *) ;;
+    esac
+}
+
 # _attention_write_signal <project_dir> <event> <session_id> <ntype> <needle> [message]
 # Returns 0 only when a non-empty signal file actually landed on disk.
 _attention_write_signal() {
@@ -116,11 +135,13 @@ _attention_write_signal() {
     fname="att-$(date +%s%3N 2>/dev/null || date +%s)-$RANDOM.json"
     ATT_DIR="$project_dir" ATT_EVENT="$event" ATT_SESSION="$session_id" \
         ATT_NTYPE="$ntype" ATT_NEEDLE="$needle" ATT_MESSAGE="$message" \
+        ATT_KIND="$(_attention_kind "$event" "$ntype")" \
         python3 - > "${sig_dir}/${fname}" <<'PY' 2>/dev/null || true
 import json, os, datetime
 print(json.dumps({
     "version": 1,
     "event": os.environ.get("ATT_EVENT", ""),
+    "kind": os.environ.get("ATT_KIND") or None,
     "notification_type": os.environ.get("ATT_NTYPE") or None,
     "session_id": os.environ.get("ATT_SESSION", ""),
     "cwd": os.environ.get("ATT_DIR", ""),

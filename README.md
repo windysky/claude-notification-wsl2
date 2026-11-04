@@ -325,10 +325,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.5.1 (2026-11-04)
+Version 1.5.2 (2026-11-04)
 
 ### Changelog
 
+- **1.5.2** (2026-11-04):
+  - **Signal `kind` from the notification type** — the attention signal now carries the `kind` field the TerminalOrganizer overlay already understands: `permission_prompt` and `elicitation_dialog` send `ask` (blink until the window is focused), while `idle_prompt` (Claude Code's generic "Claude is waiting for your input", fired about 60 s after every finished turn whatever the reply said) and `auth_success` send `info` (a short blink, then the organizer's after-cap state) instead of re-arming an until-focus blink. Stop events and unknown types carry no `kind` (unchanged). New plain-bash suite `tests/bash/attention_kind_test.sh`.
 - **1.5.1** (2026-11-04):
   - **Needle from the launcher tmux session** — inside a terminal-auto-launcher tmux session, the attention needle is now the tmux session name (e.g. `RU_CisEx`), which is exactly the tab's session title, instead of tokens of the folder basename (`jang cisex`). Folder names that differ from tab names (dropped prefixes like `jang_`/`kim_`, `projects-dashboard` vs `ProjectDashboard`) and Claude sessions running in a worktree subfolder now match their tab. Order: an explicit `attention.hints` entry, then the tmux session name (accepted only in the launcher's `GROUP_Name` shape, so a plain `0`/`main` session never becomes a needle), then the folder-basename tokens as before. Applies to both the signal and the taskbar-flash channel. New plain-bash suite `tests/bash/attention_needle_test.sh`.
   - **Reminder:** smart-rsync moves this repository between machines, but the hooks Claude runs live in `~/.claude/hooks/wsl-toast/` — re-run `./setup.sh` on each machine after pulling an update.

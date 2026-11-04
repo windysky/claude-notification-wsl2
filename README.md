@@ -325,10 +325,13 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.5.0 (2026-10-31)
+Version 1.5.1 (2026-11-04)
 
 ### Changelog
 
+- **1.5.1** (2026-11-04):
+  - **Needle from the launcher tmux session** — inside a terminal-auto-launcher tmux session, the attention needle is now the tmux session name (e.g. `RU_CisEx`), which is exactly the tab's session title, instead of tokens of the folder basename (`jang cisex`). Folder names that differ from tab names (dropped prefixes like `jang_`/`kim_`, `projects-dashboard` vs `ProjectDashboard`) and Claude sessions running in a worktree subfolder now match their tab. Order: an explicit `attention.hints` entry, then the tmux session name (accepted only in the launcher's `GROUP_Name` shape, so a plain `0`/`main` session never becomes a needle), then the folder-basename tokens as before. Applies to both the signal and the taskbar-flash channel. New plain-bash suite `tests/bash/attention_needle_test.sh`.
+  - **Reminder:** smart-rsync moves this repository between machines, but the hooks Claude runs live in `~/.claude/hooks/wsl-toast/` — re-run `./setup.sh` on each machine after pulling an update.
 - **1.5.0** (2026-10-31):
   - **Toast↔overlay auto-handoff** (Phase 2, `PROJECT_HANDOFF.md` §4) — while the TerminalOrganizer heartbeat file `%LOCALAPPDATA%\wsl-toast\attention\organizer.json` is fresh (<15 s), hooks run in "organizer mode": the attention signal is still written, but the taskbar flash and the toast are skipped — the border overlay owns attention. A stale or missing heartbeat keeps the standalone toast+flash behavior, so the overlay can exit or crash with no user action needed. No new config keys: staleness is the switch.
   - **Signal `"message"` field** — `att-*.json` now carries the first paragraph of the reply (~600 chars, sentence-boundary cut) so the overlay can render long-form content the ~5-line toast cannot (the 600-char first-paragraph extract lives on in the signal; the toast keeps the 1.4.5 two-sentence/180-char form). Notification-hook signals carry their payload message plus a real `notification_type` — the Notification hook previously passed an empty ntype into the signal (ordering bug, fixed).

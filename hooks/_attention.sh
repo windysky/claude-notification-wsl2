@@ -19,6 +19,8 @@
 #   mode" - attention_flash skips the FlashWindowEx channel (signal only) and
 #   callers skip their toast. A stale or missing heartbeat keeps the
 #   standalone toast+flash behavior.
+#   v1.5.1: the needle is the launcher tmux session name when there is one
+#   (exact tab session title), else the directory-basename tokens.
 #   Per-project window-name override:
 #     "attention": { "enabled": true,
 #                    "hints": { "/full/project/dir": "ExactWindowTitle" } }
@@ -136,6 +138,56 @@ PY
     return 0
 }
 
+# _attention_tmux_session -> the launcher tmux session name of this hook's pane,
+# or failure. The terminal-auto-launcher runs each project in a tmux session
+# named exactly like the tab's session title ("RU_CisEx", "HLab_richR"; the
+# tab adds only its own launcher prefix such as "OC_"). Accepted only in the
+# launcher's GROUP_Name shape, so a plain session ("0", "main") never becomes
+# a needle that matches unrelated windows.
+_attention_tmux_session() {
+    [ -n "${TMUX:-}" ] || return 1
+    command -v tmux >/dev/null 2>&1 || return 1
+    local name
+    if [ -n "${TMUX_PANE:-}" ]; then
+        name=$(timeout 2 tmux display-message -p -t "$TMUX_PANE" '#S' 2>/dev/null) || return 1
+    else
+        name=$(timeout 2 tmux display-message -p '#S' 2>/dev/null) || return 1
+    fi
+    [[ "$name" =~ ^[A-Za-z0-9]+_[A-Za-z0-9] ]] || return 1
+    printf '%s\n' "$name"
+}
+
+# _attention_needle <project_dir> <attention_cfg_json> -> the match needle.
+# Order (v1.5.1): an explicit "hints" entry for this directory; else the
+# launcher tmux session name (exact tab session title - immune to folder
+# names that differ from tab names, plural/shape differences, and worktree
+# cwds); else tokens of the directory basename (split on -, _, . and spaces).
+_attention_needle() {
+    local project_dir="$1" attention_cfg="${2:-{\}}"
+    local tmux_session=""
+    tmux_session=$(_attention_tmux_session 2>/dev/null) || tmux_session=""
+    WSL_TOAST_ATTENTION_CFG="$attention_cfg" ATT_TMUX_SESSION="$tmux_session" \
+        python3 - "$project_dir" <<'PY' 2>/dev/null
+import json, sys, os, re
+try:
+    cfg = json.loads(os.environ.get("WSL_TOAST_ATTENTION_CFG", "{}"))
+except ValueError:
+    cfg = {}
+project_dir = sys.argv[1] if len(sys.argv) > 1 else ""
+hints = cfg.get("hints", {}) if isinstance(cfg, dict) else {}
+hint = hints.get(project_dir) or hints.get(os.path.realpath(project_dir))
+session = os.environ.get("ATT_TMUX_SESSION", "")
+if hint:
+    print(hint)
+elif session:
+    print(session)
+else:
+    base = os.path.basename(project_dir.rstrip("/")) or project_dir
+    tokens = [t for t in re.split(r"[-_.\s]+", base.lower()) if t]
+    print(" ".join(tokens))
+PY
+}
+
 # attention_flash <project_dir> [event] [session_id] [notification_type] [message]
 attention_flash() {
     local project_dir="${1:-$PWD}"
@@ -157,23 +209,8 @@ attention_flash() {
     flash=$(python3 -c "import json; print(json.loads('''$attention_cfg''').get('flash', True))" 2>/dev/null || echo "True")
     signal=$(python3 -c "import json; print(json.loads('''$attention_cfg''').get('signal', True))" 2>/dev/null || echo "True")
 
-    # Match needle: explicit hint override for this directory, else tokens of
-    # the directory basename (split on -, _, . and whitespace).
     local needle
-    needle=$(WSL_TOAST_ATTENTION_CFG="$attention_cfg" python3 - "$project_dir" <<'PY' 2>/dev/null
-import json, sys, os, re
-cfg = json.loads(os.environ.get("WSL_TOAST_ATTENTION_CFG", "{}"))
-project_dir = sys.argv[1] if len(sys.argv) > 1 else ""
-hints = cfg.get("hints", {}) if isinstance(cfg, dict) else {}
-hint = hints.get(project_dir) or hints.get(os.path.realpath(project_dir))
-if hint:
-    print(hint)
-else:
-    base = os.path.basename(project_dir.rstrip("/")) or project_dir
-    tokens = [t for t in re.split(r"[-_.\s]+", base.lower()) if t]
-    print(" ".join(tokens))
-PY
-    )
+    needle=$(_attention_needle "$project_dir" "$attention_cfg")
     [ -z "$needle" ] && return 0
 
     # Channel 1: taskbar flash via attention.ps1. Bounded by timeout so a

@@ -116,7 +116,9 @@ _attention_kind() {
     local event="$1" ntype="$2"
     [ "$event" = "notification" ] || return 0
     case "$ntype" in
-        permission_prompt|elicitation_dialog) echo "ask" ;;
+        # v1.5.3: worker_permission_prompt ("<teammate> needs permission for Bash")
+        # and agent_needs_input also wait on the user, so they are asks too.
+        permission_prompt|elicitation_dialog|worker_permission_prompt|agent_needs_input) echo "ask" ;;
         idle_prompt|auth_success) echo "info" ;;
         *) ;;
     esac

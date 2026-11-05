@@ -29,6 +29,10 @@ check "idle_prompt is only a reminder (info: short blink, no until-focus)" "info
     "$(_attention_kind notification idle_prompt)"
 check "elicitation_dialog asks the user something (ask)" "ask" \
     "$(_attention_kind notification elicitation_dialog)"
+check "worker_permission_prompt is a teammate/subagent permission ask (ask)" "ask" \
+    "$(_attention_kind notification worker_permission_prompt)"
+check "agent_needs_input asks the user for input (ask)" "ask" \
+    "$(_attention_kind notification agent_needs_input)"
 check "auth_success is informational (info)" "info" \
     "$(_attention_kind notification auth_success)"
 check "an unknown notification type stays absent (organizer default)" "" \

@@ -325,10 +325,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.5.2 (2026-11-04)
+Version 1.5.3 (2026-11-05)
 
 ### Changelog
 
+- **1.5.3** (2026-11-05):
+  - **Teammate permission prompts are asks** — `worker_permission_prompt` (a teammate or subagent asking for a tool, e.g. "architect needs permission for Bash") and `agent_needs_input` now send `kind: ask` like `permission_prompt`, so the TerminalOrganizer overlay blinks until the window is focused instead of using its event-policy default.
 - **1.5.2** (2026-11-04):
   - **Signal `kind` from the notification type** — the attention signal now carries the `kind` field the TerminalOrganizer overlay already understands: `permission_prompt` and `elicitation_dialog` send `ask` (blink until the window is focused), while `idle_prompt` (Claude Code's generic "Claude is waiting for your input", fired about 60 s after every finished turn whatever the reply said) and `auth_success` send `info` (a short blink, then the organizer's after-cap state) instead of re-arming an until-focus blink. Stop events and unknown types carry no `kind` (unchanged). New plain-bash suite `tests/bash/attention_kind_test.sh`.
 - **1.5.1** (2026-11-04):

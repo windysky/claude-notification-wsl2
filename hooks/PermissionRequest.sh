@@ -11,6 +11,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR="${HOME}/.wsl-toast"
 CONFIG_FILE="${CONFIG_DIR}/config.json"
+LOG_DIR="${CONFIG_DIR}/logs"
+LOG_FILE="${LOG_DIR}/hooks.log"
 
 # Find notify.sh - check same directory first (installed), then project directory
 if [ -f "${SCRIPT_DIR}/notify.sh" ]; then
@@ -152,6 +154,20 @@ if [ -n "$DETAIL" ]; then
     MESSAGE="$DETAIL"
 elif [ -n "$TOOL_NAME" ]; then
     MESSAGE="Claude needs your permission to use ${TOOL_NAME}"
+fi
+
+# Auto-handoff (v1.5.4): a permission prompt also fires Notification
+# (permission_prompt), whose attention signal makes the TerminalOrganizer
+# play its ask sound. While the organizer heartbeat is fresh the overlay owns
+# attention - skip this toast so one prompt does not sound twice. A stale or
+# missing heartbeat falls through to the standalone toast.
+if [ -f "${SCRIPT_DIR}/_attention.sh" ]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/_attention.sh"
+    if _attention_organizer_alive 2>/dev/null; then
+        { mkdir -p "$LOG_DIR" && echo "[organizer mode] permission toast skipped (heartbeat fresh)" >> "$LOG_FILE"; } 2>/dev/null
+        exit 0
+    fi
 fi
 
 # Send notification in background (non-blocking)

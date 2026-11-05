@@ -325,10 +325,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.5.3 (2026-11-05)
+Version 1.5.4 (2026-11-05)
 
 ### Changelog
 
+- **1.5.4** (2026-11-05):
+  - **Permission prompts sound once** — a permission prompt fires both `Notification` (`permission_prompt`, whose attention signal makes the TerminalOrganizer play its ask sound) and `PermissionRequest`. `PermissionRequest.sh` now follows the same organizer-mode gate as `Notification.sh` and `Stop.sh`: while the heartbeat is fresh its toast is skipped, so the prompt no longer sounds twice. A stale or missing heartbeat still shows the toast. New plain-bash suite `tests/bash/permission_request_gate_test.sh`.
 - **1.5.3** (2026-11-05):
   - **Teammate permission prompts are asks** — `worker_permission_prompt` (a teammate or subagent asking for a tool, e.g. "architect needs permission for Bash") and `agent_needs_input` now send `kind: ask` like `permission_prompt`, so the TerminalOrganizer overlay blinks until the window is focused instead of using its event-policy default.
 - **1.5.2** (2026-11-04):

@@ -159,7 +159,7 @@ Add to your `.claude/settings.json`:
 
 ### Windows-native Claude Code sessions
 
-> **Status: prepared, NOT installed.** `setup.sh` does not copy this hook and nothing registers it yet; the snippet below is the manual recipe for when it is installed.
+> **Install: manual.** `setup.sh` (WSL side) does not copy or register this hook; follow the recipe below on each Windows PC that runs Claude Code natively.
 
 `windows/claude-attention-hook.ps1` is the Windows-PowerShell-5.1 counterpart of the attention-signal half of the WSL hooks, for Claude Code sessions that run natively on Windows (not inside WSL). It writes the same `att-<epochms>-<rand>.json` signal into `%LOCALAPPDATA%\wsl-toast\attention`, so the TerminalOrganizer tray app rings the Windows Terminal tab of the session that needs you. It sends the signal only: no toast and no taskbar flash.
 
@@ -368,10 +368,12 @@ MIT License - see LICENSE file for details
 
 ## Version
 
-Version 1.5.4 (2026-11-05)
+Version 1.5.5 (2026-11-05)
 
 ### Changelog
 
+- **1.5.5** (2026-11-05):
+  - **Windows-native Claude Code sessions ring too** — new `windows/claude-attention-hook.ps1` (Windows PowerShell 5.1) writes the same attention signal for Claude Code running natively on Windows, so the TerminalOrganizer rings its `WC_`/`WG_`/`WD_` launcher tab. Needle: `$env:LAUNCHER_SESSION`, else the cwd basename. Signal only (no toast, no flash), never prints, always exits 0. Manual install; see "Windows-native Claude Code sessions". New plain-PowerShell suite `tests/powershell/claude_attention_hook_test.ps1`.
 - **1.5.4** (2026-11-05):
   - **Permission prompts sound once** — a permission prompt fires both `Notification` (`permission_prompt`, whose attention signal makes the TerminalOrganizer play its ask sound) and `PermissionRequest`. `PermissionRequest.sh` now follows the same organizer-mode gate as `Notification.sh` and `Stop.sh`: while the heartbeat is fresh its toast is skipped, so the prompt no longer sounds twice. A stale or missing heartbeat still shows the toast. New plain-bash suite `tests/bash/permission_request_gate_test.sh`.
 - **1.5.3** (2026-11-05):

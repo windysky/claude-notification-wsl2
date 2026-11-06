@@ -157,6 +157,49 @@ Add to your `.claude/settings.json`:
 }
 ```
 
+### Windows-native Claude Code sessions
+
+> **Status: prepared, NOT installed.** `setup.sh` does not copy this hook and nothing registers it yet; the snippet below is the manual recipe for when it is installed.
+
+`windows/claude-attention-hook.ps1` is the Windows-PowerShell-5.1 counterpart of the attention-signal half of the WSL hooks, for Claude Code sessions that run natively on Windows (not inside WSL). It writes the same `att-<epochms>-<rand>.json` signal into `%LOCALAPPDATA%\wsl-toast\attention`, so the TerminalOrganizer tray app rings the Windows Terminal tab of the session that needs you. It sends the signal only: no toast and no taskbar flash.
+
+- Handles the `Notification` and `Stop` hook events; any other event exits without writing.
+- Needle (which tab to ring): `$env:LAUNCHER_SESSION` when set (the terminal-auto-launcher sets it in every tab), else the working-directory basename split on `-`, `_`, `.` and spaces, lowercased.
+- Never prints to stdout, never fails, always exits 0. The signal directory can be overridden with `WSL_TOAST_ATTENTION_DIR` (used by the tests).
+
+Copy the script to a stable Windows path, then add to `C:\Users\<you>\.claude\settings.json`:
+
+```json
+{
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\<you>\\.claude\\hooks\\wsl-toast\\claude-attention-hook.ps1",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\\Users\\<you>\\.claude\\hooks\\wsl-toast\\claude-attention-hook.ps1",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Test: `powershell.exe -NoProfile -ExecutionPolicy Bypass -File tests\powershell\claude_attention_hook_test.ps1` (exit code = number of failures).
+
 ### Detailed Notifications (Like Codex CLI)
 
 The Stop hook extracts the last assistant message from the transcript file to provide detailed notifications, similar to Codex CLI's `last-assistant-message` feature. This shows you what Claude actually did in the notification instead of a generic message.
